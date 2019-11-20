@@ -825,6 +825,9 @@ int input_read_parameters(
     /* Read temperatures: */
     class_read_list_of_doubles_or_default("T_ncdm",pba->T_ncdm,pba->T_ncdm_default,N_ncdm);
 
+    /* Read temperatures: */
+    class_read_list_of_integers_or_default("ncdm_is_interacting",pba->ncdm_is_interacting,0,N_ncdm);
+
     /* Read chemical potentials: */
     class_read_list_of_doubles_or_default("ksi_ncdm",pba->ksi_ncdm,pba->ksi_ncdm_default,N_ncdm);
 

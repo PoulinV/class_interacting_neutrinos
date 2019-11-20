@@ -4080,7 +4080,7 @@ int perturb_initial_conditions(struct precision * ppr,
   double w_fld,dw_over_da_fld,integral_fld;
   double delta_ur=0.,theta_ur=0.,shear_ur=0.,l3_ur=0.,eta=0.,delta_cdm=0.,alpha, alpha_prime;
   double delta_dr=0;
-  double q,epsilon,k2;
+  double q,epsilon,k2, factor_interacting;
   int index_q,n_ncdm,idx;
   double rho_r,rho_m,rho_nu,rho_m_over_rho_r;
   double fracnu,fracg,fracb,fraccdm,om;
@@ -4532,13 +4532,20 @@ int perturb_initial_conditions(struct precision * ppr,
 
           epsilon = sqrt(q*q+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
 
-          ppw->pv->y[idx] = -0.25 * delta_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          if(pba->ncdm_is_interacting[n_ncdm] == 1){
+            //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+            factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          }else{
+            factor_interacting = 1.0;
+          }
 
-          ppw->pv->y[idx+1] =  -epsilon/3./q/k*theta_ur* pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          ppw->pv->y[idx] = -0.25 * delta_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
 
-          ppw->pv->y[idx+2] = -0.5 * shear_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          ppw->pv->y[idx+1] =  -epsilon/3./q/k*theta_ur* pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
 
-          ppw->pv->y[idx+3] = -0.25 * l3_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          ppw->pv->y[idx+2] = -0.5 * shear_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
+
+          ppw->pv->y[idx+3] = -0.25 * l3_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
 
           //Jump to next momentum bin:
           idx += (ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -5335,7 +5342,7 @@ int perturb_total_stress_energy(
   double rho_plus_p_theta_ncdm=0.;
   double rho_plus_p_shear_ncdm=0.;
   double delta_p_ncdm=0.;
-  double factor;
+  double factor, factor_interacting;
   double rho_plus_p_ncdm;
   int index_q,n_ncdm,idx;
   double epsilon,q,q2,cg2_ncdm,w_ncdm,rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm;
@@ -5495,6 +5502,7 @@ int perturb_total_stress_energy(
           rho_plus_p_ncdm = rho_ncdm_bg + p_ncdm_bg;
           w_ncdm = p_ncdm_bg/rho_ncdm_bg;
           cg2_ncdm = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
+
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
             ppw->delta_ncdm[n_ncdm] = y[idx];
             ppw->theta_ncdm[n_ncdm] = y[idx+1];
@@ -5525,10 +5533,18 @@ int perturb_total_stress_energy(
             q2 = q*q;
             epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
+            if(pba->ncdm_is_interacting[n_ncdm] == 1){
+              //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+              //here we therefore multiply by dlnf0_dlnq / -4
+              factor_interacting = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]/(-4);
+            }else{
+              factor_interacting = 1.0;
+            }
+
+            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
+            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1]*factor_interacting;
+            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2]*factor_interacting;
+            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
 
             //Jump to next momentum bin:
             idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -6371,7 +6387,7 @@ int perturb_print_variables(double tau,
   double rho_plus_p_theta_ncdm = 0.0;
   double rho_plus_p_shear_ncdm = 0.0;
   double delta_p_ncdm = 0.0;
-  double factor = 0.0;
+  double factor = 0.0, factor_interacting = 1.0;
   double q,q2,epsilon;
   /** - ncdm sector ends */
   double phi=0.,psi=0.,alpha=0.;
@@ -6565,10 +6581,18 @@ int perturb_print_variables(double tau,
             q2 = q*q;
             epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
+            if(pba->ncdm_is_interacting[n_ncdm] == 1){
+              //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+              //here we therefore multiply by dlnf0_dlnq / -4
+              factor_interacting = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]/(-4);
+            }else{
+              factor_interacting = 1.0;
+            }
+
+            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
+            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1]*factor_interacting;
+            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2]*factor_interacting;
+            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
 
             //Jump to next momentum bin:
             idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -6940,9 +6964,9 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon;
+  double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
-
+  double collision_0, collision_1, collision_2, collision_l;
   /* for use with curvature */
   double cotKgen, sqrt_absK;
   double s2_squared, ssqrt3;
@@ -7575,20 +7599,26 @@ int perturb_derivs(double tau,
             q = pba->q_ncdm[n_ncdm][index_q];
             epsilon = sqrt(q*q+a2*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
             qk_div_epsilon = k*q/epsilon;
+            if(pba->ncdm_is_interacting[n_ncdm] == 1){
+              //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+              factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+            }else{
+              factor_interacting = 1.0;
+            }
 
             /** - -----> ncdm density for given momentum bin */
 
-            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.;
+            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.*factor_interacting;
 
             /** - -----> ncdm velocity for given momentum bin */
 
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
-              -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq;
+              -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq*factor_interacting;
 
             /** - -----> ncdm shear for given momentum bin */
 
             dy[idx+2] = qk_div_epsilon/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
-              -s_l[2]*metric_shear*2./15.*dlnf0_dlnq;
+              -s_l[2]*metric_shear*2./15.*dlnf0_dlnq*factor_interacting;
 
             /** - -----> ncdm l>3 for given momentum bin */
 
@@ -7600,6 +7630,25 @@ int perturb_derivs(double tau,
                 but with curvature taken into account a la arXiv:1305.3261 */
 
             dy[idx+l] = qk_div_epsilon*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
+
+            if(pba->ncdm_is_interacting[n_ncdm] == 1){
+              collision_0 = 0;
+              dy[idx] += collision_0;
+
+
+              collision_1 = 0;
+              dy[idx+1] += collision_1;
+
+              collision_2 = 0;
+              dy[idx+2] += collision_2;
+
+
+              for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
+                collision_l = 0;
+                dy[idx+l] += collision_l;
+              }
+              dy[idx+l] += collision_l;
+            }
 
             /** - -----> jump to next momentum bin or species */
 
