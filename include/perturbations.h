@@ -179,6 +179,8 @@ struct perturbs
  int size_vector_perturbation_data[_MAX_NUMBER_OF_K_FILES_]; /**< Array of sizes of vector double pointers  */
  int size_tensor_perturbation_data[_MAX_NUMBER_OF_K_FILES_]; /**< Array of sizes of tensor double pointers  */
 
+  double z_fs_ur;/**< redshift at which ur becomes free streaming */
+  double deltaz_fs_ur;/**< redshift at which ur becomes free streaming */
   double three_ceff2_ur;/**< 3 x effective squared sound speed for the ultrarelativistic perturbations */
   double three_cvis2_ur;/**< 3 x effective viscosity parameter for the ultrarelativistic perturbations */
 

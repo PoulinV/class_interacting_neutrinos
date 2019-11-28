@@ -124,6 +124,8 @@ struct background
                                              (could be e.g. mixing angles) */
   /* end of parameters for analytical ncdm p-s-d */
 
+  int * ncdm_is_interacting;       /**< defines whether the neutrino species is interacting. 0 = non-interacting (default). 1 is interacting. */
+
   /* the following parameters help to define tabulated ncdm p-s-d passed in file */
   int * got_files;                      /**< list of flags for each species, set to true if
 					     p-s-d is passed through file */

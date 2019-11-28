@@ -6974,6 +6974,8 @@ int perturb_derivs(double tau,
   /* for use with dcdm and dr */
   double f_dr, fprime_dr;
 
+  double three_ceff2_ur,three_cvis2_ur;
+  double z, cs2before,cs2after,cvis2before,cvis2after,width,center;
   /** - rename the fields of the input structure (just to avoid heavy notations) */
 
   pppaw = parameters_and_workspace;
@@ -7420,6 +7422,32 @@ int perturb_derivs(double tau,
     if (pba->has_ur == _TRUE_) {
 
       /** - ----> if radiation streaming approximation is off */
+      // if(ppt->z_fs_ur>0 && 1/pvecback[pba->index_bg_a]-1 > ppt->z_fs_ur){
+      //   three_ceff2_ur = 0;
+      //   three_cvis2_ur = 0;
+      // }
+      // else if(ppt->z_fs_ur>0 && 1/pvecback[pba->index_bg_a]-1 < ppt->z_fs_ur){
+      //   three_ceff2_ur = 1.;
+      //   three_cvis2_ur = 1.;
+      // }
+      if(ppt->z_fs_ur>0){
+        z= 1/pvecback[pba->index_bg_a]-1;
+        center =ppt->z_fs_ur;
+        width = ppt->deltaz_fs_ur;//found to work well at capturing the sharp transition
+        cs2before = 0;
+        cvis2before = 0;
+        cs2after =ppt->three_ceff2_ur;
+        cvis2after =ppt->three_cvis2_ur;
+        three_ceff2_ur = (cs2before - cs2after)*(tanh((z - center)/width) + 1)/2 + cs2after;
+        three_cvis2_ur = (cvis2before - cvis2after)*(tanh((z - center)/width) + 1)/2 + cvis2after;
+
+        // printf("three_ceff2_ur %e ppt->z_fs_ur %e z %e \n",three_ceff2_ur,ppt->z_fs_ur,z);
+      }
+      else{
+        three_ceff2_ur = ppt->three_ceff2_ur;
+        three_cvis2_ur = ppt->three_cvis2_ur;
+      }
+
 
       if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
 
@@ -7428,14 +7456,14 @@ int perturb_derivs(double tau,
           // standard term
           -4./3.*(y[pv->index_pt_theta_ur] + metric_continuity)
           // non-standard term, non-zero if if ceff2_ur not 1/3
-          +(1.-ppt->three_ceff2_ur)*a_prime_over_a*(y[pv->index_pt_delta_ur] + 4.*a_prime_over_a*y[pv->index_pt_theta_ur]/k/k);
+          +(1.-three_ceff2_ur)*a_prime_over_a*(y[pv->index_pt_delta_ur] + 4.*a_prime_over_a*y[pv->index_pt_theta_ur]/k/k);
 
         /** - -----> ur velocity */
         dy[pv->index_pt_theta_ur] =
           // standard term with extra coefficient (3 ceff2_ur), normally equal to one
-          k2*(ppt->three_ceff2_ur*y[pv->index_pt_delta_ur]/4.-s2_squared*y[pv->index_pt_shear_ur]) + metric_euler
+          k2*(three_ceff2_ur*y[pv->index_pt_delta_ur]/4.-s2_squared*y[pv->index_pt_shear_ur]) + metric_euler
           // non-standard term, non-zero if ceff2_ur not 1/3
-          -(1.-ppt->three_ceff2_ur)*a_prime_over_a*y[pv->index_pt_theta_ur];
+          -(1.-three_ceff2_ur)*a_prime_over_a*y[pv->index_pt_theta_ur];
 
         if(ppw->approx[ppw->index_ap_ufa] == (int)ufa_off) {
 
@@ -7445,7 +7473,7 @@ int perturb_derivs(double tau,
                  // standard term
                  8./15.*(y[pv->index_pt_theta_ur]+metric_shear)-3./5.*k*s_l[3]/s_l[2]*y[pv->index_pt_shear_ur+1]
                  // non-standard term, non-zero if cvis2_ur not 1/3
-                 -(1.-ppt->three_cvis2_ur)*(8./15.*(y[pv->index_pt_theta_ur]+metric_shear)));
+                 -(1.-three_cvis2_ur)*(8./15.*(y[pv->index_pt_theta_ur]+metric_shear)));
 
           /** - -----> exact ur l=3 */
           l = 3;
@@ -7526,6 +7554,7 @@ int perturb_derivs(double tau,
              fluid) */
 
           /* c_vis is introduced in order to close the system */
+
 
           /* different ansatz for sound speed c_eff and viscosity speed c_vis */
           if (ppr->ncdm_fluid_approximation == ncdmfa_mb) {

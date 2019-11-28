@@ -730,6 +730,15 @@ int input_read_parameters(
     }
   }
 
+  class_call(parser_read_double(pfc,"z_fs_ur",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  if (flag1 == _TRUE_) ppt->z_fs_ur = param1;
+  class_call(parser_read_double(pfc,"deltaz_fs_ur",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  if (flag1 == _TRUE_) ppt->deltaz_fs_ur = param1;
+
   class_call(parser_read_double(pfc,"ceff2_ur",&param1,&flag1,errmsg),
              errmsg,
              errmsg);
@@ -3089,6 +3098,8 @@ int input_default_params(
   }
   ppt->index_k_output_values=NULL;
 
+  ppt->z_fs_ur=0.;//default: ur is always free-streaming
+  ppt->deltaz_fs_ur=2.;//default: ur is always free-streaming
   ppt->three_ceff2_ur=1.;
   ppt->three_cvis2_ur=1.;
 
