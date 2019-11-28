@@ -733,7 +733,11 @@ int input_read_parameters(
   class_call(parser_read_double(pfc,"z_fs_ur",&param1,&flag1,errmsg),
              errmsg,
              errmsg);
+  class_call(parser_read_double(pfc,"log_z_fs_ur",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
   if (flag1 == _TRUE_) ppt->z_fs_ur = param1;
+  if (flag2 == _TRUE_) ppt->z_fs_ur = pow(10,param2);
   class_call(parser_read_double(pfc,"deltaz_over_z_fs_ur",&param1,&flag1,errmsg),
              errmsg,
              errmsg);
