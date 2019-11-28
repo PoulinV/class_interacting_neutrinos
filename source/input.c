@@ -734,7 +734,7 @@ int input_read_parameters(
              errmsg,
              errmsg);
   if (flag1 == _TRUE_) ppt->z_fs_ur = param1;
-  class_call(parser_read_double(pfc,"deltaz_fs_ur",&param1,&flag1,errmsg),
+  class_call(parser_read_double(pfc,"deltaz_over_z_fs_ur",&param1,&flag1,errmsg),
              errmsg,
              errmsg);
   if (flag1 == _TRUE_) ppt->deltaz_fs_ur = param1;

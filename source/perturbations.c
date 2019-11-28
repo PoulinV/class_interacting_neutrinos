@@ -7433,7 +7433,7 @@ int perturb_derivs(double tau,
       if(ppt->z_fs_ur>0){
         z= 1/pvecback[pba->index_bg_a]-1;
         center =ppt->z_fs_ur;
-        width = ppt->deltaz_fs_ur;//found to work well at capturing the sharp transition
+        width = ppt->deltaz_fs_ur*ppt->z_fs_ur;//found to work well at capturing the sharp transition
         cs2before = 0;
         cvis2before = 0;
         cs2after =ppt->three_ceff2_ur;
