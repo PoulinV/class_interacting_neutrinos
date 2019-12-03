@@ -7438,7 +7438,8 @@ int perturb_derivs(double tau,
         cvis2before = 0;
         cs2after =ppt->three_ceff2_ur;
         cvis2after =ppt->three_cvis2_ur;
-        three_ceff2_ur = (cs2before - cs2after)*(tanh((z - center)/width) + 1)/2 + cs2after;
+        // three_ceff2_ur = (cs2before - cs2after)*(tanh((z - center)/width) + 1)/2 + cs2after;
+        three_ceff2_ur = ppt->three_ceff2_ur;
         three_cvis2_ur = (cvis2before - cvis2after)*(tanh((z - center)/width) + 1)/2 + cvis2after;
 
         // printf("three_ceff2_ur %e ppt->z_fs_ur %e z %e \n",three_ceff2_ur,ppt->z_fs_ur,z);
@@ -8421,3 +8422,189 @@ int perturb_rsa_delta_and_theta(
   return _SUCCESS_;
 
 }
+
+
+
+
+
+
+/**
+//  * Read files from Francis-Yan Cyr-Racine for interacting neutrinos
+//  */
+// int perturbations_read_file_collision_term_neutrinos(
+//                                    struct precision * ppr,
+//                                    struct background * pba,
+//                                    struct perturbs * ppt
+//                                    ) {
+//
+//   FILE * fA;
+//   char line[_LINE_LENGTH_MAX_];
+//   char * left;
+//
+//   int num_ell=0;
+//   int num_q=0;
+//
+//   double * ellarray=NULL;
+//   double * qarray =NULL;
+//   double * Clarray=NULL;
+//   double * ddCl=NULL;
+//   double * Cl_at_q=NULL;
+//   double * ddCl_at_q=NULL;
+//
+//   int array_line=0;
+//   double ell;
+//   double q;
+//   double Clvalue;
+//   int last_index;
+//   double  *pvecback;
+//
+//
+//   /* the following file is assumed to contain (apart from comments and blank lines):
+//      - the two numbers (num_omegab, num_deltaN) = number of values of BBN free parameters
+//      - three columns (omegab, deltaN, YHe) where omegab = Omega0_b h^2 and deltaN = Neff-3.046 by definition
+//      - omegab and deltaN are assumed to be arranged as:
+//      omegab1 deltaN1 YHe
+//      omegab2 deltaN1 YHe
+//      .....
+//      omegab1 delatN2 YHe
+//      omegab2 deltaN2 YHe
+//      .....
+//   */
+//
+//   class_open(fA,ppr->sBBN_file, "r",ppt->error_message);
+//
+//   /* go through each line */
+//   while (fgets(line,_LINE_LENGTH_MAX_-1,fA) != NULL) {
+//
+//     /* eliminate blank spaces at beginning of line */
+//     left=line;
+//     while (left[0]==' ') {
+//       left++;
+//     }
+//
+//     /* check that the line is neither blank neither a comment. In
+//        ASCII, left[0]>39 means that first non-blank character might
+//        be the beginning of some data (it is not a newline, a #, a %,
+//        etc.) */
+//     if (left[0] > 39) {
+//
+//       /* if the line contains data, we must interpret it. If
+//          (num_omegab, num_deltaN)=(0,0), the current line must contain
+//          their values. Otherwise, it must contain (omegab, delatN,
+//          YHe). */
+//       if ((num_omegab==0) && (num_deltaN==0)) {
+//
+//         /* read (num_omegab, num_deltaN), infer size of arrays and allocate them */
+//         class_test(sscanf(line,"%d %d",&num_omegab,&num_deltaN) != 2,
+//                    ppt->error_message,
+//                    "could not read value of parameters (num_omegab,num_deltaN) in file %s\n",ppr->sBBN_file);
+//
+//         class_alloc(ellarray,num_ell*sizeof(double),ppt->error_message);
+//         class_alloc(qarray,num_deltaN*sizeof(double),ppt->error_message);
+//         class_alloc(Clarray,num_ell*num_deltaN*sizeof(double),ppt->error_message);
+//         class_alloc(ddCl,num_ell*num_deltaN*sizeof(double),ppt->error_message);
+//         class_alloc(Cl_at_q,num_ell*sizeof(double),ppt->error_message);
+//         class_alloc(ddCl_at_q,num_ell*sizeof(double),ppt->error_message);
+//         array_line=0;
+//
+//       }
+//       else {
+//
+//         /* read (omegab, deltaN, YHe) */
+//         class_test(sscanf(line,"%lg %lg %lg",
+//                           &(ellarray[array_line%num_ell]),
+//                           &(qarray[array_line/num_ell]),
+//                           &(Clarray[array_line])
+//                           ) != 3,
+//                    ppt->error_message,
+//                    "could not read value of parameters (omegab,deltaN,YHe) in file %s\n",ppr->sBBN_file);
+//         array_line ++;
+//       }
+//     }
+//   }
+//
+//   fclose(fA);
+//
+//   /** - spline in one dimension (along q) */
+//   class_call(array_spline_table_lines(qarray,
+//                                       num_q,
+//                                       Clarray,
+//                                       num_ell,
+//                                       ddCl,
+//                                       _SPLINE_NATURAL_,
+//                                       ppt->error_message),
+//              ppt->error_message,
+//              ppt->error_message);
+//
+//   omega_b=pba->Omega0_b*pba->h*pba->h;
+//
+//   class_test(q < qarray[0],
+//              ppt->error_message,
+//              "You have asked for an unrealistic small value q = %e.",
+//              q);
+//
+//   class_test(q > qarray[num_omegab-1],
+//              ppt->error_message,
+//              "You have asked for an unrealistic high value q = %e.",
+//              q);
+//
+//   class_test(ell < ellarray[0],
+//              ppt->error_message,
+//              "You have asked for an unrealistic small value of ell = %e.",
+//              ell);
+//
+//   class_test(ell > ellarray[num_deltaN-1],
+//              ppt->error_message,
+//              "You have asked for an unrealistic high value of ell = %e.",
+//              ell);
+//
+//   /** - interpolate in one dimension (along deltaN) */
+//   class_call(array_interpolate_spline(qarray,
+//                                       num_q,
+//                                       Clarray,
+//                                       ddCL,
+//                                       num_ell,
+//                                       q,
+//                                       &last_index,
+//                                       Cl_at_q,
+//                                       num_ell,
+//                                       ppt->error_message),
+//              ppt->error_message,
+//              ppt->error_message);
+//
+//   /** - spline in remaining dimension (along omegab) */
+//   class_call(array_spline_table_lines(ellarray,
+//                                       num_ell,
+//                                       Cl_at_q,
+//                                       1,
+//                                       ddCl_at_q,
+//                                       _SPLINE_NATURAL_,
+//                                       ppt->error_message),
+//              ppt->error_message,
+//              ppt->error_message);
+//
+//   /** - interpolate in remaining dimension (along omegab) */
+//   class_call(array_interpolate_spline(ellarray,
+//                                       num_ell,
+//                                       Cl_at_q,
+//                                       ddCl_at_q,
+//                                       1,
+//                                       q,
+//                                       &last_index,
+//                                       &Clvalue,
+//                                       1,
+//                                       ppt->error_message),
+//              ppt->error_message,
+//              ppt->error_message);
+//
+//   /** - deallocate arrays */
+//   free(qarray);
+//   free(ellarray);
+//   free(Clarray);
+//   free(ddCl);
+//   free(Cl_at_q);
+//   free(ddCl_at_q);
+//
+//   return _SUCCESS_;
+//
+// }
