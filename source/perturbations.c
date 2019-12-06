@@ -6971,7 +6971,7 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting, factor_col;
+  double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting, tau_nu_dot;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
   double collision_0, collision_1, collision_2, collision_l;
   /* for use with curvature */
@@ -7540,14 +7540,25 @@ int perturb_derivs(double tau,
     if (pba->has_ncdm == _TRUE_) {
 
       idx = pv->index_pt_psi0_ncdm1;
+      for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+        if(pba->ncdm_is_interacting[n_ncdm] == 1){
+          //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+          factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
+          // printf("pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_ %e\n",pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_);
+        }else{
+          factor_interacting = 1.0;
+          tau_nu_dot = 0.0;
+        }
 
       /** - ----> first case: use a fluid approximation (ncdmfa) */
       //TBC: curvature
-      if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on) {
-
+      // printf("tau_nu_dot*ppr->neutrino_tight_coupling %e pvecback[pba->index_bg_H] %e\n",sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling,pvecback[pba->index_bg_H]);
+      if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on || sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > pvecback[pba->index_bg_H]) {
+        // if(sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > pvecback[pba->index_bg_H])printf("we now assume tight coupling at a %e\n", a);
         /** - -----> loop over species */
 
-        for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+
 
           /** - -----> define intermediate quantitites */
 
@@ -7609,21 +7620,20 @@ int perturb_derivs(double tau,
 
             dy[idx+2] = -3.0*(a_prime_over_a*(2./3.-ca2_ncdm-pseudo_p_ncdm/p_ncdm_bg/3.)+1./tau)*y[idx+2]
               +8.0/3.0*cvis2_ncdm/(1.0+w_ncdm)*s_l[2]*(y[idx+1]+metric_ufa_class);
-            dy[idx+2] += - factor_col*dy[idx+2];
+            // dy[idx+2] += tau_nu_dot*y[idx+2];
           }
 
           /** - -----> jump to next species */
 
           idx += pv->l_max_ncdm[n_ncdm]+1;
         }
-      }
 
       /** - ----> second case: use exact equation (Boltzmann hierarchy on momentum grid) */
 
       else {
         /** - -----> loop over species */
 
-        for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+        // for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
 
           /** - -----> loop over momentum */
 
@@ -7638,11 +7648,11 @@ int perturb_derivs(double tau,
             if(pba->ncdm_is_interacting[n_ncdm] == 1){
               //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
               factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-              factor_col = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
+              tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
               // printf("pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_ %e\n",pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_);
             }else{
               factor_interacting = 1.0;
-              factor_col = 0.0;
+              tau_nu_dot = 0.0;
             }
 
             /** - -----> ncdm density for given momentum bin */
@@ -7675,15 +7685,15 @@ int perturb_derivs(double tau,
               class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,2,&collision_2),
                          pth->error_message,
                          pth->error_message);
-              printf("a %e factor_colw %e collision_2 %e y[idx+2] %e prduct %e dy %e\n",a,factor_col,collision_2,y[idx+2],factor_col*collision_2*y[idx+2] ,dy[idx+2]);
-              dy[idx+2] += collision_2*factor_col*y[idx+2];
+              // printf("a %e tau_nu_dotw %e collision_2 %e y[idx+2] %e prduct %e dy %e\n",a,tau_nu_dot,collision_2,y[idx+2],tau_nu_dot*collision_2*y[idx+2] ,dy[idx+2]);
+              dy[idx+2] += collision_2*tau_nu_dot*y[idx+2];
               for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
               // for(l=3; l<10; l++){
                 collision_l = 0;
                 class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
                            pth->error_message,
                            pth->error_message);
-                dy[idx+l] += collision_l*factor_col*y[idx+l];
+                dy[idx+l] += collision_l*tau_nu_dot*y[idx+l];
               }
               // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
               //            pth->error_message,

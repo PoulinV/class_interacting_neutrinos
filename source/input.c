@@ -2701,6 +2701,7 @@ int input_read_parameters(
 
   class_read_int("ur_fluid_approximation",ppr->ur_fluid_approximation);
   class_read_int("ncdm_fluid_approximation",ppr->ncdm_fluid_approximation);
+  class_read_double("neutrino_tight_coupling",ppr->neutrino_tight_coupling);
   class_read_double("ur_fluid_trigger_tau_over_tau_k",ppr->ur_fluid_trigger_tau_over_tau_k);
   class_read_double("ncdm_fluid_trigger_tau_over_tau_k",ppr->ncdm_fluid_trigger_tau_over_tau_k);
 
@@ -3401,6 +3402,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->ur_fluid_trigger_tau_over_tau_k = 30.;
 
   ppr->ncdm_fluid_approximation = ncdmfa_CLASS;
+  ppr->neutrino_tight_coupling = 0.;
   ppr->ncdm_fluid_trigger_tau_over_tau_k = 31.;
 
   ppr->neglect_CMB_sources_below_visibility = 1.e-3;
