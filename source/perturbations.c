@@ -182,6 +182,10 @@ int perturb_init(
         fprintf(stdout," -> [WARNING:] You request the number count Cl's in presence of non-cold dark matter.\n    Like in all previous CLASS and CLASSgal versions, this will be inferred from the total matter density,\n    but it could make much more sense physically to compute it from the CDM+baryon density only.\n    To get the latter behavior you would just need to change one line in transfer.c:\n    search there for a comment starting with 'use here delta_cb'\n");
       }
     }
+    class_call(perturbations_collision_term_neutrinos_init(ppr,ppt),
+              ppt->error_message,
+              ppt->error_message);
+
 
   }
 
@@ -517,6 +521,9 @@ int perturb_free(
     }
 
   }
+  class_call(perturbations_collision_term_neutrinos_free(ppt),
+             ppt->error_message,
+             ppt->error_message);
 
   return _SUCCESS_;
 
@@ -6964,7 +6971,7 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting;
+  double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting, factor_col;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
   double collision_0, collision_1, collision_2, collision_l;
   /* for use with curvature */
@@ -7602,7 +7609,7 @@ int perturb_derivs(double tau,
 
             dy[idx+2] = -3.0*(a_prime_over_a*(2./3.-ca2_ncdm-pseudo_p_ncdm/p_ncdm_bg/3.)+1./tau)*y[idx+2]
               +8.0/3.0*cvis2_ncdm/(1.0+w_ncdm)*s_l[2]*(y[idx+1]+metric_ufa_class);
-
+            dy[idx+2] += - factor_col*dy[idx+2];
           }
 
           /** - -----> jump to next species */
@@ -7614,7 +7621,6 @@ int perturb_derivs(double tau,
       /** - ----> second case: use exact equation (Boltzmann hierarchy on momentum grid) */
 
       else {
-
         /** - -----> loop over species */
 
         for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
@@ -7632,8 +7638,11 @@ int perturb_derivs(double tau,
             if(pba->ncdm_is_interacting[n_ncdm] == 1){
               //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
               factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+              factor_col = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
+              // printf("pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_ %e\n",pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_);
             }else{
               factor_interacting = 1.0;
+              factor_col = 0.0;
             }
 
             /** - -----> ncdm density for given momentum bin */
@@ -7662,22 +7671,24 @@ int perturb_derivs(double tau,
             dy[idx+l] = qk_div_epsilon*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
 
             if(pba->ncdm_is_interacting[n_ncdm] == 1){
-              collision_0 = 0;
-              dy[idx] += collision_0;
-
-
-              collision_1 = 0;
-              dy[idx+1] += collision_1;
-
               collision_2 = 0;
-              dy[idx+2] += collision_2;
-
-
+              class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,2,&collision_2),
+                         pth->error_message,
+                         pth->error_message);
+              printf("a %e factor_colw %e collision_2 %e y[idx+2] %e prduct %e dy %e\n",a,factor_col,collision_2,y[idx+2],factor_col*collision_2*y[idx+2] ,dy[idx+2]);
+              dy[idx+2] += collision_2*factor_col*y[idx+2];
               for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
+              // for(l=3; l<10; l++){
                 collision_l = 0;
-                dy[idx+l] += collision_l;
+                class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
+                           pth->error_message,
+                           pth->error_message);
+                dy[idx+l] += collision_l*factor_col*y[idx+l];
               }
-              dy[idx+l] += collision_l;
+              // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
+              //            pth->error_message,
+              //            pth->error_message);
+              // dy[idx+l] += collision_l*factor_col*y[idx+l];
             }
 
             /** - -----> jump to next momentum bin or species */
@@ -8431,180 +8442,214 @@ int perturb_rsa_delta_and_theta(
 /**
 //  * Read files from Francis-Yan Cyr-Racine for interacting neutrinos
 //  */
-// int perturbations_read_file_collision_term_neutrinos(
-//                                    struct precision * ppr,
-//                                    struct background * pba,
-//                                    struct perturbs * ppt
-//                                    ) {
-//
-//   FILE * fA;
-//   char line[_LINE_LENGTH_MAX_];
-//   char * left;
-//
-//   int num_ell=0;
-//   int num_q=0;
-//
-//   double * ellarray=NULL;
-//   double * qarray =NULL;
-//   double * Clarray=NULL;
-//   double * ddCl=NULL;
-//   double * Cl_at_q=NULL;
-//   double * ddCl_at_q=NULL;
-//
-//   int array_line=0;
-//   double ell;
-//   double q;
-//   double Clvalue;
-//   int last_index;
-//   double  *pvecback;
-//
-//
-//   /* the following file is assumed to contain (apart from comments and blank lines):
-//      - the two numbers (num_omegab, num_deltaN) = number of values of BBN free parameters
-//      - three columns (omegab, deltaN, YHe) where omegab = Omega0_b h^2 and deltaN = Neff-3.046 by definition
-//      - omegab and deltaN are assumed to be arranged as:
-//      omegab1 deltaN1 YHe
-//      omegab2 deltaN1 YHe
-//      .....
-//      omegab1 delatN2 YHe
-//      omegab2 deltaN2 YHe
-//      .....
-//   */
-//
-//   class_open(fA,ppr->sBBN_file, "r",ppt->error_message);
-//
-//   /* go through each line */
-//   while (fgets(line,_LINE_LENGTH_MAX_-1,fA) != NULL) {
-//
-//     /* eliminate blank spaces at beginning of line */
-//     left=line;
-//     while (left[0]==' ') {
-//       left++;
-//     }
-//
-//     /* check that the line is neither blank neither a comment. In
-//        ASCII, left[0]>39 means that first non-blank character might
-//        be the beginning of some data (it is not a newline, a #, a %,
-//        etc.) */
-//     if (left[0] > 39) {
-//
-//       /* if the line contains data, we must interpret it. If
-//          (num_omegab, num_deltaN)=(0,0), the current line must contain
-//          their values. Otherwise, it must contain (omegab, delatN,
-//          YHe). */
-//       if ((num_omegab==0) && (num_deltaN==0)) {
-//
-//         /* read (num_omegab, num_deltaN), infer size of arrays and allocate them */
-//         class_test(sscanf(line,"%d %d",&num_omegab,&num_deltaN) != 2,
-//                    ppt->error_message,
-//                    "could not read value of parameters (num_omegab,num_deltaN) in file %s\n",ppr->sBBN_file);
-//
-//         class_alloc(ellarray,num_ell*sizeof(double),ppt->error_message);
-//         class_alloc(qarray,num_deltaN*sizeof(double),ppt->error_message);
-//         class_alloc(Clarray,num_ell*num_deltaN*sizeof(double),ppt->error_message);
-//         class_alloc(ddCl,num_ell*num_deltaN*sizeof(double),ppt->error_message);
-//         class_alloc(Cl_at_q,num_ell*sizeof(double),ppt->error_message);
-//         class_alloc(ddCl_at_q,num_ell*sizeof(double),ppt->error_message);
-//         array_line=0;
-//
-//       }
-//       else {
-//
-//         /* read (omegab, deltaN, YHe) */
-//         class_test(sscanf(line,"%lg %lg %lg",
-//                           &(ellarray[array_line%num_ell]),
-//                           &(qarray[array_line/num_ell]),
-//                           &(Clarray[array_line])
-//                           ) != 3,
-//                    ppt->error_message,
-//                    "could not read value of parameters (omegab,deltaN,YHe) in file %s\n",ppr->sBBN_file);
-//         array_line ++;
-//       }
-//     }
-//   }
-//
-//   fclose(fA);
-//
-//   /** - spline in one dimension (along q) */
-//   class_call(array_spline_table_lines(qarray,
-//                                       num_q,
-//                                       Clarray,
-//                                       num_ell,
-//                                       ddCl,
-//                                       _SPLINE_NATURAL_,
-//                                       ppt->error_message),
-//              ppt->error_message,
-//              ppt->error_message);
-//
-//   omega_b=pba->Omega0_b*pba->h*pba->h;
-//
-//   class_test(q < qarray[0],
-//              ppt->error_message,
-//              "You have asked for an unrealistic small value q = %e.",
-//              q);
-//
-//   class_test(q > qarray[num_omegab-1],
-//              ppt->error_message,
-//              "You have asked for an unrealistic high value q = %e.",
-//              q);
-//
-//   class_test(ell < ellarray[0],
-//              ppt->error_message,
-//              "You have asked for an unrealistic small value of ell = %e.",
-//              ell);
-//
-//   class_test(ell > ellarray[num_deltaN-1],
-//              ppt->error_message,
-//              "You have asked for an unrealistic high value of ell = %e.",
-//              ell);
-//
-//   /** - interpolate in one dimension (along deltaN) */
-//   class_call(array_interpolate_spline(qarray,
-//                                       num_q,
-//                                       Clarray,
-//                                       ddCL,
-//                                       num_ell,
-//                                       q,
-//                                       &last_index,
-//                                       Cl_at_q,
-//                                       num_ell,
-//                                       ppt->error_message),
-//              ppt->error_message,
-//              ppt->error_message);
-//
-//   /** - spline in remaining dimension (along omegab) */
-//   class_call(array_spline_table_lines(ellarray,
-//                                       num_ell,
-//                                       Cl_at_q,
-//                                       1,
-//                                       ddCl_at_q,
-//                                       _SPLINE_NATURAL_,
-//                                       ppt->error_message),
-//              ppt->error_message,
-//              ppt->error_message);
-//
-//   /** - interpolate in remaining dimension (along omegab) */
-//   class_call(array_interpolate_spline(ellarray,
-//                                       num_ell,
-//                                       Cl_at_q,
-//                                       ddCl_at_q,
-//                                       1,
-//                                       q,
-//                                       &last_index,
-//                                       &Clvalue,
-//                                       1,
-//                                       ppt->error_message),
-//              ppt->error_message,
-//              ppt->error_message);
-//
-//   /** - deallocate arrays */
-//   free(qarray);
-//   free(ellarray);
-//   free(Clarray);
-//   free(ddCl);
-//   free(Cl_at_q);
-//   free(ddCl_at_q);
-//
-//   return _SUCCESS_;
-//
-// }
+int perturbations_collision_term_neutrinos_init(
+                                   struct precision * ppr,
+                                   struct perturbs * ppt
+                                   ) {
+
+  FILE * fA;
+  char line[_LINE_LENGTH_MAX_];
+  char * left;
+
+  int num_ell=0;
+  int num_q=0;
+
+  int array_line=0;
+
+
+  /* the following file is assumed to contain (apart from comments and blank lines):
+     - the two numbers (num_omegab, num_deltaN) = number of values of BBN free parameters
+     - three columns (omegab, deltaN, YHe) where omegab = Omega0_b h^2 and deltaN = Neff-3.046 by definition
+     - omegab and deltaN are assumed to be arranged as:
+     q1 ell YHe
+     q2 deltaN1 YHe
+     .....
+     omegab1 delatN2 YHe
+     omegab2 deltaN2 YHe
+     .....
+  */
+
+  class_open(fA,ppr->collision_term_file, "r",ppt->error_message);
+  // printf("opening file for reading! %e %e\n",q,ell);
+
+  /* go through each line */
+  while (fgets(line,_LINE_LENGTH_MAX_-1,fA) != NULL) {
+
+    /* eliminate blank spaces at beginning of line */
+    left=line;
+    while (left[0]==' ') {
+      left++;
+    }
+
+    /* check that the line is neither blank neither a comment. In
+       ASCII, left[0]>39 means that first non-blank character might
+       be the beginning of some data (it is not a newline, a #, a %,
+       etc.) */
+    if (left[0] > 39) {
+
+      /* if the line contains data, we must interpret it. If
+         (num_omegab, num_deltaN)=(0,0), the current line must contain
+         their values. Otherwise, it must contain (omegab, delatN,
+         YHe). */
+      if ((num_q==0) && (num_ell==0)) {
+
+        /* read (num_omegab, num_deltaN), infer size of arrays and allocate them */
+        class_test(sscanf(line,"%d %d",&num_q,&num_ell) != 2,
+                   ppt->error_message,
+                   "could not read value of parameters (num_q,num_ell) in file %s\n",ppr->collision_term_file);
+        // printf("qvalues %d ellvalues %d\n",num_q,num_ell);
+        class_alloc(ppt->ellarray,num_ell*sizeof(double),ppt->error_message);
+        class_alloc(ppt->qarray,num_q*sizeof(double),ppt->error_message);
+        class_alloc(ppt->Clarray,num_ell*num_q*sizeof(double),ppt->error_message);
+        class_alloc(ppt->ddCl,num_ell*num_q*sizeof(double),ppt->error_message);
+        class_alloc(ppt->Cl_at_q,num_ell*sizeof(double),ppt->error_message);
+        class_alloc(ppt->ddCl_at_q,num_ell*sizeof(double),ppt->error_message);
+        ppt->number_q_values = num_q;
+        ppt->number_ell_values = num_ell;
+        array_line=0;
+
+      }
+      else {
+        // printf("array_linenum_q%d array_line/num_ell %d\n",array_line%num_q,array_line/num_q);
+        /* read (q, ell, Cl) */
+        class_test(sscanf(line,"%lg %lg %lg",
+                          &(ppt->qarray[array_line%num_q]),
+                          &(ppt->ellarray[array_line/num_q]),
+                          &(ppt->Clarray[array_line])
+                          ) != 3,
+                   ppt->error_message,
+                   "could not read value of parameters (q,ell,Cl) in file %s\n",ppr->collision_term_file);
+        // printf("qarray[array_line] %e ellarray[array_line] %e Clarray[array_line] %e \n",ppt->qarray[array_line%num_q],ppt->ellarray[array_line/num_q],ppt->Clarray[array_line]);
+        array_line ++;
+
+      }
+    }
+  }
+
+  // printf("Interpolation is starting! %e %e %e %e\n",q,ell,qarray[0],qarray[num_q-1]);
+
+  fclose(fA);
+  for(int i =0;i<ppt->number_q_values;i++){
+    if(i==0)ppt->qarray[i]*=0.999;
+    else ppt->qarray[i]*=1.001;
+  }
+  // for(int i =0;i<ppt->number_ell_values;i++){
+  //   if(i==0)ppt->ellarray[i]*=0.999;
+  //   else ppt->ellarray[i]*=1.001;
+  // }
+
+  /** - spline in one dimension (along q) */
+  class_call(array_spline_table_lines(ppt->qarray,
+                                      num_q,
+                                      ppt->Clarray,
+                                      num_ell,
+                                      ppt->ddCl,
+                                      _SPLINE_NATURAL_,
+                                      ppt->error_message),
+             ppt->error_message,
+             ppt->error_message);
+
+ /** - spline in remaining dimension (along omegab) */
+ class_call(array_spline_table_lines(ppt->ellarray,
+                                     num_ell,
+                                     ppt->Cl_at_q,
+                                     1,
+                                     ppt->ddCl_at_q,
+                                     _SPLINE_NATURAL_,
+                                     ppt->error_message),
+            ppt->error_message,
+            ppt->error_message);
+
+  return _SUCCESS_;
+
+}
+
+int perturbations_collision_term_neutrinos_interpolate(
+                                   struct precision * ppr,
+                                   struct perturbs * ppt,
+                                   double q,
+                                   double ell,
+                                   double * collision_term_at_ell
+                                   ) {
+
+  int last_index;
+  double collision_term = 0;
+  class_test(q < ppt->qarray[0],
+          ppt->error_message,
+          "You have asked for an unrealistic small value q = %e < %e.",
+          q,ppt->qarray[0]);
+
+  class_test(q > ppt->qarray[ppt->number_q_values-1],
+          ppt->error_message,
+          "You have asked for an unrealistic high value q = %e > %e.",
+          q,ppt->qarray[ppt->number_q_values-1]);
+
+  // class_test(ell < ppt->ellarray[0],
+  //         ppt->error_message,
+  //         "You have asked for an unrealistic small value of ell = %e < %e.",
+  //         ell,ppt->ellarray[0]);
+  //
+  // class_test(ell > ppt->ellarray[ppt->number_ell_values-1],
+  //         ppt->error_message,
+  //         "You have asked for an unrealistic high value of ell = %e > %e.",
+  //         ell, ppt->ellarray[ppt->number_ell_values-1]);
+
+  // printf("ready to interp \n");
+  /** - interpolate in one dimension (along q) */
+  class_call(array_interpolate_spline(ppt->qarray,
+                                   ppt->number_q_values,
+                                   ppt->Clarray,
+                                   ppt->ddCl,
+                                   ppt->number_ell_values,
+                                   q,
+                                   &last_index,
+                                   ppt->Cl_at_q,
+                                   ppt->number_ell_values,
+                                   ppt->error_message),
+          ppt->error_message,
+          ppt->error_message);
+
+  for(int i = 0; i<ppt->number_ell_values;i++){
+    //since ell is always gonna be equal to one of the l values we dont have to interpolate
+    //we just find the corresponding Cl_at_q value.
+    //if ell is not equal to one of the tabulated l values, we assume it is because the collision term is 0.
+    // printf("%e %e ppt->Cl_at_q %e\n",q,ell,ppt->Cl_at_q[i],ppt->ellarray[i]);
+    if((int) ell == (int) ppt->ellarray[i]){
+      // printf("found ell %d i = %d ppt->Cl_at_q[i] %e\n",(int) ell, i,ppt->Cl_at_q[i]);
+      collision_term = ppt->Cl_at_q[i];
+    }
+  }
+  if(collision_term == 0)printf("weird I did not find q %e ell %e\n",q,ell);
+
+  // /** - interpolate in remaining dimension (along omegab) */
+  // // class_call(array_interpolate_spline(ppt->ellarray,
+  // //                                  ppt->number_ell_values,
+  // //                                  ppt->Cl_at_q,
+  // //                                  ppt->ddCl_at_q,
+  // //                                  1,
+  // //                                  ell,
+  // //                                  &last_index,
+  // //                                  &collision_term,
+  // //                                  1,
+  // //                                  ppt->error_message),
+  // //         ppt->error_message,
+  // //         ppt->error_message);
+  *collision_term_at_ell = collision_term;
+  class_test(collision_term>10000,  ppt->error_message,
+   "the collision term has crapped out %e at q %e ell %e .",collision_term,q,ell);
+  // printf("ell %e q %e collision_term %e\n",ell,q,collision_term);
+  return _SUCCESS_;
+}
+
+int perturbations_collision_term_neutrinos_free(
+                                   struct perturbs * ppt
+                                   ){
+  /** - deallocate arrays */
+  free(ppt->qarray);
+  free(ppt->ellarray);
+  free(ppt->Clarray);
+  free(ppt->ddCl);
+  free(ppt->Cl_at_q);
+  free(ppt->ddCl_at_q);
+
+}

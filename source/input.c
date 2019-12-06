@@ -827,6 +827,10 @@ int input_read_parameters(
     if (ppt->gauge == newtonian)
       ppr->tol_ncdm = ppr->tol_ncdm_newtonian;
 
+
+    class_read_string("collision term file",ppr->collision_term_file);
+    class_read_list_of_doubles_or_default("Geff_neutrinos",ppt->Geff_neutrinos,0.0,N_ncdm);
+
     /* Quadrature modes, 0 is qm_auto. */
     class_read_list_of_integers_or_default("Quadrature strategy",pba->ncdm_quadrature_strategy,0,N_ncdm);
     /* Number of momentum bins */
@@ -3107,6 +3111,7 @@ int input_default_params(
   ppt->three_ceff2_ur=1.;
   ppt->three_cvis2_ur=1.;
 
+
   ppt->z_max_pk=0.;
 
   ppt->selection_num=1;
@@ -3288,6 +3293,9 @@ int input_default_precision ( struct precision * ppr ) {
   /* for bbn */
   sprintf(ppr->sBBN_file,__CLASSDIR__);
   strcat(ppr->sBBN_file,"/bbn/sBBN_2017.dat");
+  /* for bbn */
+  sprintf(ppr->collision_term_file,__CLASSDIR__);
+  strcat(ppr->collision_term_file,"/collision_term_files/Coll_integrals_5_qbins.dat");
 
   /* for recombination */
 

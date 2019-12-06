@@ -183,6 +183,16 @@ struct perturbs
   double deltaz_fs_ur;/**< redshift at which ur becomes free streaming */
   double three_ceff2_ur;/**< 3 x effective squared sound speed for the ultrarelativistic perturbations */
   double three_cvis2_ur;/**< 3 x effective viscosity parameter for the ultrarelativistic perturbations */
+  double * Geff_neutrinos;/**< Geff in units of MeV^-2 for interacting neutrinos */
+  double * ellarray;
+  double * qarray ;
+  double * Clarray;
+  double * ddCl;
+  double * Cl_at_q;
+  double * ddCl_at_q;
+  int number_ell_values;
+  int number_q_values;
+
 
   double z_max_pk; /**< when we compute only the matter spectrum / transfer functions, but not the CMB, we are sometimes interested to sample source functions at very high redshift, way before recombination. This z_max_pk will then fix the initial sampling time of the sources. */
 
@@ -813,6 +823,20 @@ extern "C" {
   int perturb_prepare_output(struct background * pba,
                              struct perturbs * ppt);
 
+  int perturbations_collision_term_neutrinos_init(
+                                    struct precision * ppr,
+                                    struct perturbs * ppt
+                                  );
+  int perturbations_collision_term_neutrinos_interpolate(
+                                    struct precision * ppr,
+                                    struct perturbs * ppt,
+                                    double q,
+                                    double ell,
+                                    double * collision_term_at_ell
+                                  );
+  int perturbations_collision_term_neutrinos_free(
+                                    struct perturbs * ppt
+                                  );
 #ifdef __cplusplus
 }
 #endif

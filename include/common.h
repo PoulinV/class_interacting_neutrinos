@@ -431,6 +431,7 @@ struct precision
   /* - for bbn */
 /* @cond INCLUDE_WITH_DOXYGEN */
   FileName sBBN_file;
+  FileName collision_term_file;
 /* @endcond */
   /* - for recombination */
 
