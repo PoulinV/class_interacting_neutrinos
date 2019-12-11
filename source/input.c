@@ -828,7 +828,8 @@ int input_read_parameters(
       ppr->tol_ncdm = ppr->tol_ncdm_newtonian;
 
 
-    class_read_string("collision term file",ppr->collision_term_file);
+    class_read_string("collision term Cl file",ppr->collision_term_Cl_file);
+    class_read_string("collision term alphal file",ppr->collision_term_alphal_file);
     class_read_list_of_doubles_or_default("Geff_neutrinos",ppt->Geff_neutrinos,0.0,N_ncdm);
 
     /* Quadrature modes, 0 is qm_auto. */
@@ -3295,8 +3296,10 @@ int input_default_precision ( struct precision * ppr ) {
   sprintf(ppr->sBBN_file,__CLASSDIR__);
   strcat(ppr->sBBN_file,"/bbn/sBBN_2017.dat");
   /* for bbn */
-  sprintf(ppr->collision_term_file,__CLASSDIR__);
-  strcat(ppr->collision_term_file,"/collision_term_files/Coll_integrals_5_qbins.dat");
+  sprintf(ppr->collision_term_Cl_file,__CLASSDIR__);
+  strcat(ppr->collision_term_Cl_file,"/collision_term_files/Coll_integrals_5_qbins.dat");
+  sprintf(ppr->collision_term_alphal_file,__CLASSDIR__);
+  strcat(ppr->collision_term_alphal_file,"/collision_term_files/Massless_alpha_l.dat");
 
   /* for recombination */
 

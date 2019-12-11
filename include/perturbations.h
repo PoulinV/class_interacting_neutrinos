@@ -190,6 +190,8 @@ struct perturbs
   double * ddCl;
   double * Cl_at_q;
   double * ddCl_at_q;
+  double * alphal;
+  int* ncdm_is_tca;	/**< ncdm is tca? */
   int number_ell_values;
   int number_q_values;
 
@@ -439,6 +441,8 @@ struct perturb_vector
   int index_pt_F0_dr;
   int l_max_dr;          /**< max momentum in Boltzmann hierarchy for dr) */
   int index_pt_psi0_ncdm1; /**< first multipole of perturbation of first ncdm species, Psi_0 */
+  int index_pt_delta_ncdm; /**< first multipole of perturbation of first ncdm species, Psi_0 */
+  int index_pt_theta_ncdm; /**< first multipole of perturbation of first ncdm species, Psi_0 */
   int N_ncdm;		/**< number of distinct non-cold-dark-matter (ncdm) species */
   int* l_max_ncdm;	/**< mutipole l at which Boltzmann hierarchy is truncated (for each ncdm species) */
   int* q_size_ncdm;	/**< number of discrete momenta (for each ncdm species) */
