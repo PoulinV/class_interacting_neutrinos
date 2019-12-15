@@ -186,7 +186,7 @@ int perturb_init(
               ppt->error_message,
               ppt->error_message);
 
-    class_alloc(ppt->ncdm_is_tca, sizeof(int)*pba->N_ncdm,ppt->error_message);
+    // class_alloc(ppt->ncdm_is_tca, sizeof(int)*pba->N_ncdm,ppt->error_message);
 
   }
 
@@ -3619,6 +3619,8 @@ int perturb_vector_init(
                 index_pt++;
               }
             }
+            ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+            ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
           }
         }
 
@@ -3661,6 +3663,8 @@ int perturb_vector_init(
                 index_pt++;
               }
             }
+            ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+            ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
           }
         }
       }
@@ -3743,6 +3747,8 @@ int perturb_vector_init(
                   index_pt++;
                 }
               }
+              ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+              ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
             }
           }
         }
@@ -3990,6 +3996,8 @@ int perturb_vector_init(
               index_pt++;
             }
           }
+          ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+          ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
         }
       }
 
@@ -5388,6 +5396,8 @@ int perturb_total_stress_energy(
   double c_gamma_k_H_square;
   double Gamma_prime_plus_a_prime_over_a_Gamma, alpha=0., s2sq=1.;
   double tau_nu_dot;
+  int ncdm_is_tca;
+
   /** - wavenumber and scale factor related quantities */
 
   a = ppw->pvecback[pba->index_bg_a];
@@ -5528,6 +5538,7 @@ int perturb_total_stress_energy(
       if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on){
         // The perturbations are evolved integrated:
         for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+          ncdm_is_tca = 0;
           rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
           p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
           pseudo_p_ncdm = ppw->pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
@@ -5553,19 +5564,18 @@ int perturb_total_stress_energy(
       }
       else{
         for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+          ncdm_is_tca = 0;
           // printf("here! %e\n",a);
-          ppt->ncdm_is_tca[n_ncdm] = 0;
-
           if(pba->ncdm_is_interacting[n_ncdm] == 1){
             //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
             // factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
             tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
             if(sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > ppw->pvecback[pba->index_bg_H]){
-              ppt->ncdm_is_tca[n_ncdm] = 1;
+              ncdm_is_tca = 1;
             }
           }
 
-          if(ppt->ncdm_is_tca[n_ncdm] == 1){
+          if(ncdm_is_tca == 1){
             rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
             p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
             pseudo_p_ncdm = ppw->pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
@@ -5577,14 +5587,14 @@ int perturb_total_stress_energy(
               if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
                 ppw->delta_ncdm[n_ncdm] = y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
                 ppw->theta_ncdm[n_ncdm] = y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
-                ppw->shear_ncdm[n_ncdm] = 0;
+                ppw->shear_ncdm[n_ncdm] = 8*y[ppw->pv->index_pt_theta_ncdm+n_ncdm]/(15*ppt->alphal[0]*tau_nu_dot)/2;
                 // printf("I'm in here!!\n");
               }
 
 
               ppw->delta_rho += rho_ncdm_bg*y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
               ppw->rho_plus_p_theta += rho_plus_p_ncdm*y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
-              ppw->rho_plus_p_shear += rho_plus_p_ncdm*ppw->shear_ncdm[n_ncdm];
+              ppw->rho_plus_p_shear += rho_plus_p_ncdm*8*y[ppw->pv->index_pt_theta_ncdm+n_ncdm]/(15*ppt->alphal[0]*tau_nu_dot)/2;
               ppw->delta_p += cg2_ncdm*rho_ncdm_bg*y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
               rho_plus_p_tot += rho_plus_p_ncdm;
           }
@@ -7036,6 +7046,7 @@ int perturb_derivs(double tau,
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
   double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting, tau_nu_dot, tau_nu_dot_full_hierarchy;
+  int ncdm_is_tca;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
   double collision_0, collision_1, collision_2, collision_l;
   /* for use with curvature */
@@ -7607,7 +7618,7 @@ int perturb_derivs(double tau,
 
       idx = pv->index_pt_psi0_ncdm1;
       for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
-        ppt->ncdm_is_tca[n_ncdm] = 0;
+        ncdm_is_tca = 0;
         tau_nu_dot = 0.0;
         tau_nu_dot_full_hierarchy = 0.0;
 
@@ -7617,11 +7628,12 @@ int perturb_derivs(double tau,
           // tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
           tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
           if(sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > pvecback[pba->index_bg_H]){
-            ppt->ncdm_is_tca[n_ncdm] = 1;
+            ncdm_is_tca = 1;
             // printf("switch on TCA at a %e\n",a);
-            tau_nu_dot_full_hierarchy = pvecback[pba->index_bg_H]/ppr->neutrino_tight_coupling; //max out the interaction rate until we switch off the TCA
+            // tau_nu_dot_full_hierarchy = pvecback[pba->index_bg_H]/ppr->neutrino_tight_coupling; //max out the interaction rate until we switch off the TCA
+            tau_nu_dot_full_hierarchy = 0; //max out the interaction rate until we switch off the TCA
           }else{
-            ppt->ncdm_is_tca[n_ncdm] = 0;
+            ncdm_is_tca = 0;
             tau_nu_dot_full_hierarchy = tau_nu_dot;
             // tau_nu_dot_full_hierarchy = 0;
           }
@@ -7764,17 +7776,19 @@ int perturb_derivs(double tau,
 
             if(pba->ncdm_is_interacting[n_ncdm] == 1){
               collision_2 = 0;
-              class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,2,&collision_2),
-                         pth->error_message,
-                         pth->error_message);
+              collision_2 = ppt->Clarray[index_q];
+              // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,2,&collision_2),
+              //            pth->error_message,
+              //            pth->error_message);
               // printf("a %e tau_nu_dotw %e collision_2 %e y[idx+2] %e prduct %e dy %e\n",a,tau_nu_dot_full_hierarchy,collision_2,y[idx+2],tau_nu_dot_full_hierarchy*collision_2*y[idx+2] ,dy[idx+2]);
               dy[idx+2] += collision_2*tau_nu_dot_full_hierarchy*y[idx+2];
               for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
               // for(l=3; l<10; l++){
-                collision_l = 0;
-                class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
-                           pth->error_message,
-                           pth->error_message);
+              collision_l = 0;
+                collision_l = ppt->Clarray[index_q+(l-2)*pv->q_size_ncdm[n_ncdm]];
+                // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
+                //            pth->error_message,
+                //            pth->error_message);
                 dy[idx+l] += collision_l*tau_nu_dot_full_hierarchy*y[idx+l];
               }
               // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
@@ -7790,7 +7804,7 @@ int perturb_derivs(double tau,
 
         }
 
-        if(ppt->ncdm_is_tca[n_ncdm] == 1){
+        if(ncdm_is_tca == 1){
 
             /** - -----> define intermediate quantitites */
 
@@ -7823,15 +7837,16 @@ int perturb_derivs(double tau,
           //also follow the fluid variable for the tca  /** - -----> exact continuity equation */
             // ppw->shear_ncdm[n_ncdm] = 8*y[pv->index_pt_theta_ncdm]/(15*tau_nu_dot);
             // ppw->shear_ncdm[n_ncdm] = 8*y[pv->index_pt_theta_ncdm]/(15*tau_nu_dot)/2;
-            // ppw->shear_ncdm[n_ncdm] = 0;
+              // ppw->shear_ncdm[n_ncdm] = 0;ppt->alphal[0]*
             shear_ncdm = 8*y[pv->index_pt_theta_ncdm]/(15*ppt->alphal[0]*tau_nu_dot)/2;//ppt->alphal[0] = alpha_2
-
+            // shear_ncdm = 0;//ppt->alphal[0] = alpha_2
+            // printf("ppt->alphal[0] %e\n",ppt->alphal[0]);
             dy[pv->index_pt_delta_ncdm+n_ncdm] = -(1.0+w_ncdm)*(y[pv->index_pt_theta_ncdm+n_ncdm]+metric_continuity)-
               3.0*a_prime_over_a*(ceff2_ncdm-w_ncdm)*y[pv->index_pt_delta_ncdm+n_ncdm];
 
 
             /** - -----> exact euler equation */
-            // printf("-k2*ppw->shear_ncdm[n_ncdm] %e tau_nu_dot %e index_pt_theta_ncdm %e\n", -k2*ppw->shear_ncdm[n_ncdm],tau_nu_dot,y[pv->index_pt_theta_ncdm]);
+            // printf("-k2*ppw->shear_ncdm[n_ncdm] %e tau_nu_dot %e index_pt_theta_ncdm %e\n", -k2*shear_ncdm,tau_nu_dot,y[pv->index_pt_theta_ncdm]);
             dy[pv->index_pt_theta_ncdm+n_ncdm] = -a_prime_over_a*(1.0-3.0*ca2_ncdm)*y[pv->index_pt_theta_ncdm+n_ncdm]+
               ceff2_ncdm/(1.0+w_ncdm)*k2*y[pv->index_pt_delta_ncdm+n_ncdm]-k2*shear_ncdm
               + metric_euler;
