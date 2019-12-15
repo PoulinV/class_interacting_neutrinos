@@ -8654,7 +8654,7 @@ int perturbations_collision_term_neutrinos_init(
   int num_ell_2=0;
   int num_q=0;
 
-  int array_line=0;
+  int array_line=0,i;
 
 
   /* the following file is assumed to contain (apart from comments and blank lines):
@@ -8778,7 +8778,7 @@ int perturbations_collision_term_neutrinos_init(
   fclose(fA);
   fclose(fB);
 
-  for(int i =0;i<ppt->number_q_values;i++){
+  for(i =0;i<ppt->number_q_values;i++){
     if(i==0)ppt->qarray[i]*=0.999;
     else ppt->qarray[i]*=1.001;
   }
@@ -8821,7 +8821,7 @@ int perturbations_collision_term_neutrinos_interpolate(
                                    double * collision_term_at_ell
                                    ) {
 
-  int last_index;
+  int last_index, i;
   double collision_term = 0;
   class_test(q < ppt->qarray[0],
           ppt->error_message,
@@ -8857,7 +8857,7 @@ int perturbations_collision_term_neutrinos_interpolate(
                                      ppt->error_message),
             ppt->error_message,
             ppt->error_message);
-    for(int i = 0; i<ppt->number_ell_values;i++){
+    for(i = 0; i<ppt->number_ell_values;i++){
       //since ell is always gonna be equal to one of the l values we dont have to interpolate
       //we just find the corresponding Cl_at_q value.
       //if ell is not equal to one of the tabulated l values, we assume it is because the collision term is 0.
