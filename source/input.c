@@ -755,6 +755,7 @@ int input_read_parameters(
 
 
   class_read_double("Geff_ur",ppt->Geff_ur);
+
   if(ppt->Geff_ur !=0) pba->ur_is_interacting=1;
   else pba->ur_is_interacting=0;
   // printf("Geff_ur %e int %d\n", ppt->Geff_ur,pba->ur_is_interacting);
@@ -839,7 +840,20 @@ int input_read_parameters(
     class_read_string("collision term Cl file",ppr->collision_term_Cl_file);
     class_read_string("collision term alphal file",ppr->collision_term_alphal_file);
     class_read_list_of_doubles_or_default("Geff_neutrinos",ppt->Geff_neutrinos,0.0,N_ncdm);
+    class_call(parser_read_string(pfc,
+                                  "ur_interacts_like_ncdm",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+                errmsg,
+                errmsg);
 
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        pba->ur_is_interacting=1;
+        ppt->Geff_ur = ppt->Geff_neutrinos[0];
+      }
+    }
     /* Quadrature modes, 0 is qm_auto. */
     class_read_list_of_integers_or_default("Quadrature strategy",pba->ncdm_quadrature_strategy,0,N_ncdm);
     /* Number of momentum bins */
