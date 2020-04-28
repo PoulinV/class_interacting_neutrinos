@@ -184,6 +184,7 @@ struct perturbs
   double three_ceff2_ur;/**< 3 x effective squared sound speed for the ultrarelativistic perturbations */
   double three_cvis2_ur;/**< 3 x effective viscosity parameter for the ultrarelativistic perturbations */
   double * Geff_neutrinos;/**< Geff in units of MeV^-2 for interacting neutrinos */
+  double  Geff_ur;/**< Geff in units of MeV^-2 for interacting ur */
   double * ellarray;
   double * qarray ;
   double * Clarray;

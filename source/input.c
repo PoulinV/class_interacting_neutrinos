@@ -753,6 +753,11 @@ int input_read_parameters(
              errmsg);
   if (flag1 == _TRUE_) ppt->three_cvis2_ur = 3.*param1;
 
+
+  class_read_double("Geff_ur",ppt->Geff_ur);
+  if(ppt->Geff_ur !=0) pba->ur_is_interacting=1;
+  else pba->ur_is_interacting=0;
+  // printf("Geff_ur %e int %d\n", ppt->Geff_ur,pba->ur_is_interacting);
   Omega_tot += pba->Omega0_ur;
 
   /** - Omega_0_cdm (CDM) */
@@ -814,6 +819,9 @@ int input_read_parameters(
   }
 
   /** - non-cold relics (ncdm) */
+
+
+
   class_read_int("N_ncdm",N_ncdm);
   if ((flag1 == _TRUE_) && (N_ncdm > 0)){
     pba->N_ncdm = N_ncdm;
@@ -3112,6 +3120,7 @@ int input_default_params(
   ppt->deltaz_fs_ur=2.;//default: ur is always free-streaming
   ppt->three_ceff2_ur=1.;
   ppt->three_cvis2_ur=1.;
+  ppt->Geff_ur=0;
 
 
   ppt->z_max_pk=0.;
