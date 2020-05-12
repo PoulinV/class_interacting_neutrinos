@@ -7596,7 +7596,7 @@ int perturb_derivs(double tau,
         if(sqrt(tau_nu_dot_ur*tau_nu_dot_ur)*ppr->neutrino_tight_coupling > a*pvecback[pba->index_bg_H]){
           ur_is_tca = 1;
           y[pv->index_pt_shear_ur] = 8*(y[pv->index_pt_theta_ur]+metric_shear)/(15*tau_nu_dot_ur*ppt->alphal[2])/2;
-          // printf("switching on TCA: a  %e shear  %e\n",a,y[pv->index_pt_shear_ur]);
+          // printf("switching on TCA: a  %e shear  %e tau/Mpc %e\n",a,y[pv->index_pt_shear_ur],tau);
         }else{
           //switch off the tca
           ur_is_tca = 0;
@@ -7714,27 +7714,12 @@ int perturb_derivs(double tau,
         if(pba->ncdm_is_interacting[n_ncdm] == 1){
           // printf("I am interacting\n");
           //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
-          // factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-          // tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
           tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
           if(sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > a*pvecback[pba->index_bg_H]){
             ncdm_is_tca = 1;
           }else{
             //switch off the tca
             ncdm_is_tca = 0;
-            // for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
-            //   //tca wipe out all higher moments.
-            //   /** - -----> ncdm shear for given momentum bin */
-            //   y[idx+2] = 0;
-            //   /** - -----> ncdm l>3 for given momentum bin */
-            //   for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
-            //     y[idx+l] = 0;
-            //   }
-            //   y[idx+l] = 0;
-            //   /** - -----> ncdm lmax for given momentum bin (truncation as in Ma and Bertschinger)
-            //       but with curvature taken into account a la arXiv:1305.3261 */
-            //  idx += (pv->l_max_ncdm[n_ncdm]+1);
-            // }
           }
         }
       /** - ----> first case: use a fluid approximation (ncdmfa) */
@@ -7839,11 +7824,9 @@ int perturb_derivs(double tau,
             if(pba->ncdm_is_interacting[n_ncdm] == 1){
               //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
               factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-              // tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
-              // printf("pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_ %e\n",pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_);
+
             }else{
               factor_interacting = 1.0;
-              // tau_nu_dot = 0.0;
             }
 
             /** - -----> ncdm density for given momentum bin */
@@ -7980,14 +7963,9 @@ int perturb_derivs(double tau,
             }
           //also follow the fluid variable for the tca
           /** - -----> exact continuity equation */
-            // ppw->shear_ncdm[n_ncdm] = 8*y[pv->index_pt_theta_ncdm]/(15*tau_nu_dot);
-            // ppw->shear_ncdm[n_ncdm] = 8*y[pv->index_pt_theta_ncdm]/(15*tau_nu_dot)/2;
-              // ppw->shear_ncdm[n_ncdm] = 0;ppt->alphal[0]*
-              // shear_ncdm = 0;
+
             shear_ncdm = 8*(y[pv->index_pt_theta_ncdm]+metric_shear)/(15*ppt->alphal[2]*tau_nu_dot)/2;//ppt->alphal[0] = alpha_2
-            // shear_ncdm = 8*(y[pv->index_pt_theta_ncdm]+metric_shear)/(15*ppt->alphal[0]*tau_nu_dot)/2;//ppt->alphal[0] = alpha_2
-            // shear_ncdm = 0;//ppt->alphal[0] = alpha_2
-            // printf("ppt->alphal[0] %e\n",ppt->alphal[0]);
+
             dy[pv->index_pt_delta_ncdm+n_ncdm] = -(1.0+w_ncdm)*(y[pv->index_pt_theta_ncdm+n_ncdm]+metric_continuity)-
               3.0*a_prime_over_a*(ceff2_ncdm-w_ncdm)*y[pv->index_pt_delta_ncdm+n_ncdm];
 
@@ -8012,11 +7990,8 @@ int perturb_derivs(double tau,
               if(pba->ncdm_is_interacting[n_ncdm] == 1){
                 //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
                 factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-                // tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
-                // printf("pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_ %e\n",pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_);
               }else{
                 factor_interacting = 1.0;
-                // tau_nu_dot = 0.0;
               }
 
               /** - -----> ncdm density for given momentum bin */
@@ -8043,37 +8018,8 @@ int perturb_derivs(double tau,
                   but with curvature taken into account a la arXiv:1305.3261 */
 
               dy[idx+l] = qk_div_epsilon*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
-              //
-              // if(pba->ncdm_is_interacting[n_ncdm] == 1){
-              //   // printf("I am not TCA but I am interacting!\n");
-              //   collision_2 = 0;
-              //   collision_2 = ppt->Clarray[index_q];
-              //   // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,2,&collision_2),
-              //   //            pth->error_message,
-              //   //            pth->error_message);
-              //   // printf("a %e tau_nu_dotw %e collision_2 %e y[idx+2] %e prduct %e dy %e\n",a,tau_nu_dot,collision_2,y[idx+2],tau_nu_dot*collision_2*y[idx+2] ,dy[idx+2]);
-              //   dy[idx+2] += collision_2*tau_nu_dot*y[idx+2];
-              //   // printf("true : a %e y[idx+0]%e y[idx+1]%e y[idx+2]%e ratio %e\n",a,y[idx+0],y[idx+1],y[idx+2],sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling/pvecback[pba->index_bg_H]);
-              //   // printf("true : a %e dy[idx+0]%e dy[idx+1]%e dy[idx+2] %e \n",a,dy[idx+0],dy[idx+1],dy[idx+2]);
-              //   for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
-              //     collision_l = 0;
-              //     collision_l = ppt->Clarray[index_q+(l-2)*pv->q_size_ncdm[n_ncdm]];
-              //     // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
-              //     //            pth->error_message,
-              //     //            pth->error_message);
-              //     dy[idx+l] += collision_l*tau_nu_dot*y[idx+l];
-              //     // printf("true : a %e y[idx+l] %e dy[idx+%d] %e \n",a,y[idx+l],l,dy[idx+l]);
-              //   }
-              //   // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
-              //   //            pth->error_message,
-              //   //            pth->error_message);
-              //   // dy[idx+l] += collision_l*factor_col*y[idx+l];
-              // }
-              //
+
               // /** - -----> jump to next momentum bin or species */
-              // // printf("before a %e y[idx+0]%e y[idx+1]%e y[idx+2]%e\n",a,y[idx+0],y[idx+1],y[idx+2]);
-
-
 
               idx += (pv->l_max_ncdm[n_ncdm]+1);
             }

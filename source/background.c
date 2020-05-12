@@ -625,6 +625,11 @@ int background_init(
       printf(" -> total N_eff = %g (sumed over ultra-relativistic and ncdm species)\n",Neff);
 
     }
+    else{
+      Neff = pba->Omega0_ur/7.*8./pow(4./11.,4./3.)/pba->Omega0_g;
+
+      printf(" -> total N_eff = %g (sumed over ultra-relativistic only)\n",Neff);
+    }
   }
 
   /** - if shooting failed during input, catch the error here */
@@ -678,9 +683,10 @@ int background_init(
      93 point something)*/
   if ((pba->background_verbose > 0) && (pba->has_ncdm == _TRUE_)) {
     for (n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
-      printf(" -> non-cold dark matter species with i=%d has m_i = %e eV (so m_i / omega_i =%e eV)\n",
+      printf(" -> non-cold dark matter species with i=%d has m_i = %e eV and omega_i = %e  (so m_i / omega_i =%e eV)\n",
              n_ncdm+1,
              pba->m_ncdm_in_eV[n_ncdm],
+             pba->Omega0_ncdm[n_ncdm]*pba->h*pba->h,
              pba->m_ncdm_in_eV[n_ncdm]*pba->deg_ncdm[n_ncdm]/pba->Omega0_ncdm[n_ncdm]/pba->h/pba->h);
     }
   }
