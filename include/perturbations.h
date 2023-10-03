@@ -179,8 +179,23 @@ struct perturbs
  int size_vector_perturbation_data[_MAX_NUMBER_OF_K_FILES_]; /**< Array of sizes of vector double pointers  */
  int size_tensor_perturbation_data[_MAX_NUMBER_OF_K_FILES_]; /**< Array of sizes of tensor double pointers  */
 
+  double z_fs_ur;/**< redshift at which ur becomes free streaming */
+  double deltaz_fs_ur;/**< redshift at which ur becomes free streaming */
   double three_ceff2_ur;/**< 3 x effective squared sound speed for the ultrarelativistic perturbations */
   double three_cvis2_ur;/**< 3 x effective viscosity parameter for the ultrarelativistic perturbations */
+  double * Geff_neutrinos;/**< Geff in units of MeV^-2 for interacting neutrinos */
+  double  Geff_ur;/**< Geff in units of MeV^-2 for interacting ur */
+  double * ellarray;
+  double * qarray ;
+  double * Clarray;
+  double * ddCl;
+  double * Cl_at_q;
+  double * ddCl_at_q;
+  double * alphal;
+  int* ncdm_is_tca;	/**< ncdm is tca? */
+  int number_ell_values;
+  int number_q_values;
+
 
   double z_max_pk; /**< when we compute only the matter spectrum / transfer functions, but not the CMB, we are sometimes interested to sample source functions at very high redshift, way before recombination. This z_max_pk will then fix the initial sampling time of the sources. */
 
@@ -427,6 +442,8 @@ struct perturb_vector
   int index_pt_F0_dr;
   int l_max_dr;          /**< max momentum in Boltzmann hierarchy for dr) */
   int index_pt_psi0_ncdm1; /**< first multipole of perturbation of first ncdm species, Psi_0 */
+  int index_pt_delta_ncdm; /**< first multipole of perturbation of first ncdm species, Psi_0 */
+  int index_pt_theta_ncdm; /**< first multipole of perturbation of first ncdm species, Psi_0 */
   int N_ncdm;		/**< number of distinct non-cold-dark-matter (ncdm) species */
   int* l_max_ncdm;	/**< mutipole l at which Boltzmann hierarchy is truncated (for each ncdm species) */
   int* q_size_ncdm;	/**< number of discrete momenta (for each ncdm species) */
@@ -511,6 +528,7 @@ struct perturb_workspace
   double * delta_ncdm;	/**< relative density perturbation of each ncdm species */
   double * theta_ncdm;	/**< velocity divergence theta of each ncdm species */
   double * shear_ncdm;	/**< shear for each ncdm species */
+  double * cs2_ncdm;	/**< sound speed for each ncdm species */
 
   double delta_m;	/**< relative density perturbation of all non-relativistic species */
   double theta_m;	/**< velocity divergence theta of all non-relativistic species */
@@ -811,6 +829,20 @@ extern "C" {
   int perturb_prepare_output(struct background * pba,
                              struct perturbs * ppt);
 
+  int perturbations_collision_term_neutrinos_init(
+                                    struct precision * ppr,
+                                    struct perturbs * ppt
+                                  );
+  int perturbations_collision_term_neutrinos_interpolate(
+                                    struct precision * ppr,
+                                    struct perturbs * ppt,
+                                    double q,
+                                    double ell,
+                                    double * collision_term_at_ell
+                                  );
+  int perturbations_collision_term_neutrinos_free(
+                                    struct perturbs * ppt
+                                  );
 #ifdef __cplusplus
 }
 #endif

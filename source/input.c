@@ -730,6 +730,19 @@ int input_read_parameters(
     }
   }
 
+  class_call(parser_read_double(pfc,"z_fs_ur",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  class_call(parser_read_double(pfc,"log_z_fs_ur",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
+  if (flag1 == _TRUE_) ppt->z_fs_ur = param1;
+  if (flag2 == _TRUE_) ppt->z_fs_ur = pow(10,param2);
+  class_call(parser_read_double(pfc,"deltaz_over_z_fs_ur",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  if (flag1 == _TRUE_) ppt->deltaz_fs_ur = param1;
+
   class_call(parser_read_double(pfc,"ceff2_ur",&param1,&flag1,errmsg),
              errmsg,
              errmsg);
@@ -740,6 +753,12 @@ int input_read_parameters(
              errmsg);
   if (flag1 == _TRUE_) ppt->three_cvis2_ur = 3.*param1;
 
+
+  class_read_double("Geff_ur",ppt->Geff_ur);
+
+  if(ppt->Geff_ur !=0) pba->ur_is_interacting=1;
+  else pba->ur_is_interacting=0;
+  // printf("Geff_ur %e int %d\n", ppt->Geff_ur,pba->ur_is_interacting);
   Omega_tot += pba->Omega0_ur;
 
   /** - Omega_0_cdm (CDM) */
@@ -801,6 +820,9 @@ int input_read_parameters(
   }
 
   /** - non-cold relics (ncdm) */
+
+
+
   class_read_int("N_ncdm",N_ncdm);
   if ((flag1 == _TRUE_) && (N_ncdm > 0)){
     pba->N_ncdm = N_ncdm;
@@ -814,6 +836,24 @@ int input_read_parameters(
     if (ppt->gauge == newtonian)
       ppr->tol_ncdm = ppr->tol_ncdm_newtonian;
 
+
+    class_read_string("collision term Cl file",ppr->collision_term_Cl_file);
+    class_read_string("collision term alphal file",ppr->collision_term_alphal_file);
+    class_read_list_of_doubles_or_default("Geff_neutrinos",ppt->Geff_neutrinos,0.0,N_ncdm);
+    class_call(parser_read_string(pfc,
+                                  "ur_interacts_like_ncdm",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+                errmsg,
+                errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        pba->ur_is_interacting=1;
+        ppt->Geff_ur = ppt->Geff_neutrinos[0];
+      }
+    }
     /* Quadrature modes, 0 is qm_auto. */
     class_read_list_of_integers_or_default("Quadrature strategy",pba->ncdm_quadrature_strategy,0,N_ncdm);
     /* Number of momentum bins */
@@ -824,6 +864,9 @@ int input_read_parameters(
 
     /* Read temperatures: */
     class_read_list_of_doubles_or_default("T_ncdm",pba->T_ncdm,pba->T_ncdm_default,N_ncdm);
+
+    /* Read temperatures: */
+    class_read_list_of_integers_or_default("ncdm_is_interacting",pba->ncdm_is_interacting,0,N_ncdm);
 
     /* Read chemical potentials: */
     class_read_list_of_doubles_or_default("ksi_ncdm",pba->ksi_ncdm,pba->ksi_ncdm_default,N_ncdm);
@@ -2681,6 +2724,7 @@ int input_read_parameters(
 
   class_read_int("ur_fluid_approximation",ppr->ur_fluid_approximation);
   class_read_int("ncdm_fluid_approximation",ppr->ncdm_fluid_approximation);
+  class_read_double("neutrino_tight_coupling",ppr->neutrino_tight_coupling);
   class_read_double("ur_fluid_trigger_tau_over_tau_k",ppr->ur_fluid_trigger_tau_over_tau_k);
   class_read_double("ncdm_fluid_trigger_tau_over_tau_k",ppr->ncdm_fluid_trigger_tau_over_tau_k);
 
@@ -3086,8 +3130,12 @@ int input_default_params(
   }
   ppt->index_k_output_values=NULL;
 
+  ppt->z_fs_ur=0.;//default: ur is always free-streaming
+  ppt->deltaz_fs_ur=2.;//default: ur is always free-streaming
   ppt->three_ceff2_ur=1.;
   ppt->three_cvis2_ur=1.;
+  ppt->Geff_ur=0;
+
 
   ppt->z_max_pk=0.;
 
@@ -3270,6 +3318,11 @@ int input_default_precision ( struct precision * ppr ) {
   /* for bbn */
   sprintf(ppr->sBBN_file,__CLASSDIR__);
   strcat(ppr->sBBN_file,"/bbn/sBBN_2017.dat");
+  /* for bbn */
+  sprintf(ppr->collision_term_Cl_file,__CLASSDIR__);
+  strcat(ppr->collision_term_Cl_file,"/collision_term_files/Coll_integrals_5_qbins.dat");
+  sprintf(ppr->collision_term_alphal_file,__CLASSDIR__);
+  strcat(ppr->collision_term_alphal_file,"/collision_term_files/Massless_alpha_l.dat");
 
   /* for recombination */
 
@@ -3375,6 +3428,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->ur_fluid_trigger_tau_over_tau_k = 30.;
 
   ppr->ncdm_fluid_approximation = ncdmfa_CLASS;
+  ppr->neutrino_tight_coupling = 0.;
   ppr->ncdm_fluid_trigger_tau_over_tau_k = 31.;
 
   ppr->neglect_CMB_sources_below_visibility = 1.e-3;

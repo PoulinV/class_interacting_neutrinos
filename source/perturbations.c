@@ -168,6 +168,12 @@ int perturb_init(
                 (ppr->ur_fluid_approximation > ufa_none),
                 ppt->error_message,
                 "your ur_fluid_approximation is set to %d, out of range defined in perturbations.h",ppr->ur_fluid_approximation);
+    // if(pba->ur_is_interacting==_TRUE_){
+      class_call(perturbations_collision_term_neutrinos_init(ppr,ppt),
+                ppt->error_message,
+                ppt->error_message);
+    // }
+
   }
 
   if (pba->has_ncdm == _TRUE_) {
@@ -182,6 +188,12 @@ int perturb_init(
         fprintf(stdout," -> [WARNING:] You request the number count Cl's in presence of non-cold dark matter.\n    Like in all previous CLASS and CLASSgal versions, this will be inferred from the total matter density,\n    but it could make much more sense physically to compute it from the CDM+baryon density only.\n    To get the latter behavior you would just need to change one line in transfer.c:\n    search there for a comment starting with 'use here delta_cb'\n");
       }
     }
+    class_call(perturbations_collision_term_neutrinos_init(ppr,ppt),
+              ppt->error_message,
+              ppt->error_message);
+    // pba->ncdm_is_interacting[0] = 0;
+
+    // class_alloc(ppt->ncdm_is_tca, sizeof(int)*pba->N_ncdm,ppt->error_message);
 
   }
 
@@ -386,7 +398,7 @@ int perturb_init(
 #ifdef _OPENMP
           tstart = omp_get_wtime();
 #endif
-
+          // printf("calling perturb_solve for index_k %d\n",index_k);
           class_call_parallel(perturb_solve(ppr,
                                             pba,
                                             pth,
@@ -444,7 +456,11 @@ int perturb_init(
   } /* end loop over modes */
 
   free(pppw);
-
+  if(pba->has_ur || pba->has_ncdm){
+    class_call(perturbations_collision_term_neutrinos_free(ppt),
+               ppt->error_message,
+               ppt->error_message);
+  }
   return _SUCCESS_;
 }
 
@@ -517,6 +533,12 @@ int perturb_free(
     }
 
   }
+  // if(pba->has_ur || pba->has_ncdm){
+  // class_call(perturbations_collision_term_neutrinos_free(ppt),
+  //            ppt->error_message,
+  //            ppt->error_message);
+  // }
+
 
   return _SUCCESS_;
 
@@ -2030,6 +2052,7 @@ int perturb_workspace_init(
       class_alloc(ppw->delta_ncdm,pba->N_ncdm*sizeof(double),ppt->error_message);
       class_alloc(ppw->theta_ncdm,pba->N_ncdm*sizeof(double),ppt->error_message);
       class_alloc(ppw->shear_ncdm,pba->N_ncdm*sizeof(double),ppt->error_message);
+      class_alloc(ppw->cs2_ncdm,pba->N_ncdm*sizeof(double),ppt->error_message);
 
     }
 
@@ -2068,6 +2091,7 @@ int perturb_workspace_free (
       free(ppw->delta_ncdm);
       free(ppw->theta_ncdm);
       free(ppw->shear_ncdm);
+      free(ppw->cs2_ncdm);
     }
   }
 
@@ -2199,6 +2223,7 @@ int perturb_solve(
 
   /* will be at least the first time in the background table */
   tau_lower = pba->tau_table[0];
+  // printf("[solve]: calling background\n");
 
   class_call(background_at_tau(pba,
                                tau_lower,
@@ -2310,6 +2335,7 @@ int perturb_solve(
   tau = tau_mid;
 
   /** - find the number of intervals over which approximation scheme is constant */
+  // printf("[solve]: calling approx number\n");
 
   class_alloc(interval_number_of,ppw->ap_size*sizeof(int),ppt->error_message);
 
@@ -2335,6 +2361,7 @@ int perturb_solve(
 
   for (index_interval=0; index_interval<interval_number; index_interval++)
     class_alloc(interval_approx[index_interval],ppw->ap_size*sizeof(int),ppt->error_message);
+    // printf("[solve]: calling approx switch\n");
 
   class_call(perturb_find_approximation_switches(ppr,
                                                  pba,
@@ -2415,6 +2442,7 @@ int perturb_solve(
         mode. If it starts from an approximation switching point,
         redistribute correctly the perturbations from the previous to
         the new vector of perturbations. */
+        // printf("[solve]: calling vector init\n");
 
     class_call(perturb_vector_init(ppr,
                                    pba,
@@ -2437,6 +2465,7 @@ int perturb_solve(
     else{
       generic_evolver = evolver_ndf15;
     }
+    // printf("[solve]: calling derivs\n");
 
     class_call(generic_evolver(perturb_derivs,
                                interval_limit[index_interval],
@@ -2476,6 +2505,7 @@ int perturb_solve(
   }
 
   /** - free quantities allocated at the beginning of the routine */
+  // printf("[solve]: calling vector free\n");
 
   class_call(perturb_vector_free(ppw->pv),
              ppt->error_message,
@@ -3144,11 +3174,13 @@ int perturb_vector_init(
     /* non-cold dark matter */
 
     if (pba->has_ncdm == _TRUE_) {
-      ppv->index_pt_psi0_ncdm1 = index_pt; /* density of ultra-relativistic neutrinos/relics */
       ppv->N_ncdm = pba->N_ncdm;
+      class_define_index(ppv->index_pt_delta_ncdm,_TRUE_,index_pt,ppv->N_ncdm); /* density of ultra-relativistic neutrinos/relics */
+      // printf("ppw->pv->index_pt_delta_ncdm %d\n", ppv->index_pt_delta_ncdm);
+      class_define_index(ppv->index_pt_theta_ncdm,_TRUE_,index_pt,ppv->N_ncdm); /* velocity of ultra-relativistic neutrinos/relics */
+      ppv->index_pt_psi0_ncdm1 = index_pt; /* density of ultra-relativistic neutrinos/relics */
       class_alloc(ppv->l_max_ncdm,ppv->N_ncdm*sizeof(double),ppt->error_message);
       class_alloc(ppv->q_size_ncdm,ppv->N_ncdm*sizeof(double),ppt->error_message);
-
       for(n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
         // Set value of ppv->l_max_ncdm:
         if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_off){
@@ -3167,6 +3199,7 @@ int perturb_vector_init(
         }
         index_pt += (ppv->l_max_ncdm[n_ncdm]+1)*ppv->q_size_ncdm[n_ncdm];
       }
+
     }
 
     /* metric (only quantities to be integrated, not those obeying constraint equations) */
@@ -3609,6 +3642,8 @@ int perturb_vector_init(
                 index_pt++;
               }
             }
+            ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+            ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
           }
         }
 
@@ -3651,6 +3686,8 @@ int perturb_vector_init(
                 index_pt++;
               }
             }
+            ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+            ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
           }
         }
       }
@@ -3733,6 +3770,8 @@ int perturb_vector_init(
                   index_pt++;
                 }
               }
+              ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+              ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
             }
           }
         }
@@ -3980,6 +4019,8 @@ int perturb_vector_init(
               index_pt++;
             }
           }
+          ppv->y[ppv->index_pt_delta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+          ppv->y[ppv->index_pt_theta_ncdm+n_ncdm] = ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
         }
       }
 
@@ -4080,7 +4121,7 @@ int perturb_initial_conditions(struct precision * ppr,
   double w_fld,dw_over_da_fld,integral_fld;
   double delta_ur=0.,theta_ur=0.,shear_ur=0.,l3_ur=0.,eta=0.,delta_cdm=0.,alpha, alpha_prime;
   double delta_dr=0;
-  double q,epsilon,k2;
+  double q,epsilon,k2, factor_interacting;
   int index_q,n_ncdm,idx;
   double rho_r,rho_m,rho_nu,rho_m_over_rho_r;
   double fracnu,fracg,fracb,fraccdm,om;
@@ -4532,13 +4573,43 @@ int perturb_initial_conditions(struct precision * ppr,
 
           epsilon = sqrt(q*q+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
 
-          ppw->pv->y[idx] = -0.25 * delta_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          if(pba->ncdm_is_interacting[n_ncdm] == 1){
+            //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+            factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+            // dy[pv->index_pt_delta_ncdm] = -(1.0+w_ncdm)*(y[idx+1]+metric_continuity)-
+            //   3.0*a_prime_over_a*(ceff2_ncdm-w_ncdm)*y[idx];
+            //
+            // /** - -----> exact euler equation */
+            //
+            // dy[pv->index_pt_theta_ncdm] = -a_prime_over_a*(1.0-3.0*ca2_ncdm)*y[idx+1]+
+            //   ceff2_ncdm/(1.0+w_ncdm)*k2*y[idx]-k2*ppw->shear_ncdm[n_ncdm]
+            //   + metric_euler;
 
-          ppw->pv->y[idx+1] =  -epsilon/3./q/k*theta_ur* pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+            ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm] = - ktau_two/3. * (1.-om*tau/5.)
+              * ppr->curvature_ini * s2_squared;
 
-          ppw->pv->y[idx+2] = -0.5 * shear_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+            /* photon velocity */
+            ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm] = - k*ktau_three/36. * (1.-3.*(1.+5.*fracb-fracnu)/20./(1.-fracnu)*om*tau)
+              * ppr->curvature_ini * s2_squared;
 
-          ppw->pv->y[idx+3] = -0.25 * l3_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          }else{
+            // printf("in initial conditions ok\n");
+            factor_interacting = 1.0;
+            ppw->pv->y[ppw->pv->index_pt_delta_ncdm+n_ncdm] = - ktau_two/3. * (1.-om*tau/5.)
+              * ppr->curvature_ini * s2_squared;
+
+            /* photon velocity */
+            ppw->pv->y[ppw->pv->index_pt_theta_ncdm+n_ncdm] = - k*ktau_three/36. * (1.-3.*(1.+5.*fracb-fracnu)/20./(1.-fracnu)*om*tau)
+              * ppr->curvature_ini * s2_squared;
+          }
+
+          ppw->pv->y[idx] = -0.25 * delta_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
+
+          ppw->pv->y[idx+1] =  -epsilon/3./q/k*theta_ur* pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
+
+          ppw->pv->y[idx+2] = -0.5 * shear_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
+
+          ppw->pv->y[idx+3] = -0.25 * l3_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]*factor_interacting;
 
           //Jump to next momentum bin:
           idx += (ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -5335,7 +5406,7 @@ int perturb_total_stress_energy(
   double rho_plus_p_theta_ncdm=0.;
   double rho_plus_p_shear_ncdm=0.;
   double delta_p_ncdm=0.;
-  double factor;
+  double factor, factor_interacting;
   double rho_plus_p_ncdm;
   int index_q,n_ncdm,idx;
   double epsilon,q,q2,cg2_ncdm,w_ncdm,rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm;
@@ -5347,8 +5418,10 @@ int perturb_total_stress_energy(
   double delta_rho_scf, delta_p_scf, psi;
   double c_gamma_k_H_square;
   double Gamma_prime_plus_a_prime_over_a_Gamma, alpha=0., s2sq=1.;
-
-  /** - wavenumber and scale factor related quantities */
+  double tau_nu_dot;
+  int ncdm_is_tca;
+  double metric_shear;
+  /** - wavenumber and sca le factor related quantities */
 
   a = ppw->pvecback[pba->index_bg_a];
   a2 = a * a;
@@ -5488,6 +5561,7 @@ int perturb_total_stress_energy(
       if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on){
         // The perturbations are evolved integrated:
         for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+          ncdm_is_tca = 0;
           rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
           p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
           pseudo_p_ncdm = ppw->pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
@@ -5495,10 +5569,12 @@ int perturb_total_stress_energy(
           rho_plus_p_ncdm = rho_ncdm_bg + p_ncdm_bg;
           w_ncdm = p_ncdm_bg/rho_ncdm_bg;
           cg2_ncdm = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
+
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
             ppw->delta_ncdm[n_ncdm] = y[idx];
             ppw->theta_ncdm[n_ncdm] = y[idx+1];
             ppw->shear_ncdm[n_ncdm] = y[idx+2];
+            ppw->cs2_ncdm[n_ncdm] = cg2_ncdm;
           }
 
           ppw->delta_rho += rho_ncdm_bg*y[idx];
@@ -5511,47 +5587,109 @@ int perturb_total_stress_energy(
         }
       }
       else{
-        // We must integrate to find perturbations:
         for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
-          rho_delta_ncdm = 0.0;
-          rho_plus_p_theta_ncdm = 0.0;
-          rho_plus_p_shear_ncdm = 0.0;
-          delta_p_ncdm = 0.0;
-          factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
+          ncdm_is_tca = 0;
+          // printf("here! %e\n",a);
+          if(pba->ncdm_is_interacting[n_ncdm] == 1){
+            //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+            // factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+            tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
+            // printf("ppr->neutrino_tight_coupling %e ppw->pvecback[pba->index_bg_H] %e sqrt(tau_nu_dot*tau_nu_dot) %e\n", ppr->neutrino_tight_coupling,  ppw->pvecback[pba->index_bg_H],sqrt(tau_nu_dot*tau_nu_dot));
+            if(sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > a*ppw->pvecback[pba->index_bg_H]){
+              // printf("ppr->neutrino_tight_coupling %e\n", ppr->neutrino_tight_coupling);
 
-          for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
-
-            q = pba->q_ncdm[n_ncdm][index_q];
-            q2 = q*q;
-            epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
-
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-
-            //Jump to next momentum bin:
-            idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
+              ncdm_is_tca = 1;
+            }
           }
 
-          rho_delta_ncdm *= factor;
-          rho_plus_p_theta_ncdm *= k*factor;
-          rho_plus_p_shear_ncdm *= 2.0/3.0*factor;
-          delta_p_ncdm *= factor/3.;
+          if(ncdm_is_tca == 1){
+            rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+            p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+            pseudo_p_ncdm = ppw->pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
 
-          if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
-            ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
-            ppw->theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
-              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-            ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
-              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+            rho_plus_p_ncdm = rho_ncdm_bg + p_ncdm_bg;
+            w_ncdm = p_ncdm_bg/rho_ncdm_bg;
+            cg2_ncdm = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
+
+              if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
+                ppw->delta_ncdm[n_ncdm] = y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+                ppw->theta_ncdm[n_ncdm] = y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
+                if (ppt->gauge == synchronous) {
+                  metric_shear = k2 * ppw->pvecmetric[ppw->index_mt_alpha];
+                }
+                if (ppt->gauge == newtonian) {
+                  metric_shear = 0.;
+                }
+                metric_shear = 0.;
+                ppw->shear_ncdm[n_ncdm] = 8*(y[ppw->pv->index_pt_theta_ncdm+n_ncdm]+metric_shear)/(15*ppt->alphal[2]*tau_nu_dot)/2;
+                // ppw->shear_ncdm[n_ncdm] = 8*(y[ppw->pv->index_pt_theta_ncdm+n_ncdm]+metric_shear)/(15*3.75)/2;
+                // printf("tau_nu_dot %e\n",tau_nu_dot);
+                // printf("ppw->delta_ncdm[n_ncdm]  %e,  ppw->theta_ncdm[n_ncdm] %e, ppw->shear_ncdm[n_ncdm] %e\n", ppw->delta_ncdm[n_ncdm],  ppw->theta_ncdm[n_ncdm], ppw->shear_ncdm[n_ncdm]);
+                // ppw->shear_ncdm[n_ncdm] = 0;
+                ppw->cs2_ncdm[n_ncdm] = cg2_ncdm;
+                // printf("I'm in here!! ycdm %e  ppw->pv->index_pt_delta_ncdm %d ppw->delta_ncdm[n_ncdm] %e ppw->delta_ncdm[n_ncdm] %e metric_shear %e ppw->shear_ncdm[n_ncdm]  %e\n",y[ppw->pv->index_pt_delta_cdm],ppw->pv->index_pt_delta_ncdm, ppw->delta_ncdm[n_ncdm],  ppw->theta_ncdm[n_ncdm], metric_shear,ppw->shear_ncdm[n_ncdm]);
+              }
+
+              //
+              ppw->delta_rho += rho_ncdm_bg*y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+              ppw->rho_plus_p_theta += rho_plus_p_ncdm*y[ppw->pv->index_pt_theta_ncdm+n_ncdm];
+              ppw->rho_plus_p_shear += rho_plus_p_ncdm*ppw->shear_ncdm[n_ncdm];
+              ppw->delta_p += cg2_ncdm*rho_ncdm_bg*y[ppw->pv->index_pt_delta_ncdm+n_ncdm];
+              rho_plus_p_tot += rho_plus_p_ncdm;
+          }
+          else{
+            // printf("here bug!!! \n");
+            rho_delta_ncdm = 0.0;
+            rho_plus_p_theta_ncdm = 0.0;
+            rho_plus_p_shear_ncdm = 0.0;
+            delta_p_ncdm = 0.0;
+            factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
+            // We must integrate to find perturbations:
+            for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
+
+              q = pba->q_ncdm[n_ncdm][index_q];
+              q2 = q*q;
+              epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
+
+              if(pba->ncdm_is_interacting[n_ncdm] == 1){
+                //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+                //here we therefore multiply by dlnf0_dlnq / -4
+                factor_interacting = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]/(-4);
+              }else{
+                factor_interacting = 1.0;
+              }
+
+              rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
+              rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1]*factor_interacting;
+              rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2]*factor_interacting;
+              delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
+
+              //Jump to next momentum bin:
+              idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
+            }
+
+            rho_delta_ncdm *= factor;
+            rho_plus_p_theta_ncdm *= k*factor;
+            rho_plus_p_shear_ncdm *= 2.0/3.0*factor;
+            delta_p_ncdm *= factor/3.;
+
+            if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
+              ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+              ppw->theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+                (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+              ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+                (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+              ppw->cs2_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
+            }
+
+            ppw->delta_rho += rho_delta_ncdm;
+            ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
+            ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
+            ppw->delta_p += delta_p_ncdm;
+            rho_plus_p_tot += ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
           }
 
-          ppw->delta_rho += rho_delta_ncdm;
-          ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
-          ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
-          ppw->delta_p += delta_p_ncdm;
-          rho_plus_p_tot += ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+
         }
       }
     }
@@ -6371,7 +6509,7 @@ int perturb_print_variables(double tau,
   double rho_plus_p_theta_ncdm = 0.0;
   double rho_plus_p_shear_ncdm = 0.0;
   double delta_p_ncdm = 0.0;
-  double factor = 0.0;
+  double factor = 0.0, factor_interacting = 1.0;
   double q,q2,epsilon;
   /** - ncdm sector ends */
   double phi=0.,psi=0.,alpha=0.;
@@ -6559,32 +6697,47 @@ int perturb_print_variables(double tau,
           delta_p_ncdm = 0.0;
           factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
 
-          for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
+          // for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
+          //
+          //   q = pba->q_ncdm[n_ncdm][index_q];
+          //   q2 = q*q;
+          //   epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
+          //
+          //   if(pba->ncdm_is_interacting[n_ncdm] == 1){
+          //     //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+          //     //here we therefore multiply by dlnf0_dlnq / -4
+          //     factor_interacting = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]/(-4);
+          //   }else{
+          //     factor_interacting = 1.0;
+          //   }
+          //
+          //   rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
+          //   rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1]*factor_interacting;
+          //   rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2]*factor_interacting;
+          //   delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx]*factor_interacting;
+          //
+          //   //Jump to next momentum bin:
+          //   idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
+          // }
 
-            q = pba->q_ncdm[n_ncdm][index_q];
-            q2 = q*q;
-            epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
+          // rho_delta_ncdm *= factor;
+          // rho_plus_p_theta_ncdm *= k*factor;
+          // rho_plus_p_shear_ncdm *= 2.0/3.0*factor;
+          // delta_p_ncdm *= factor/3.;
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
+          // delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+          // theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+          //   (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+          // shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+          //   (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+          // delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
 
-            //Jump to next momentum bin:
-            idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
-          }
+          delta_ncdm[n_ncdm] = ppw->delta_ncdm[n_ncdm];
+          theta_ncdm[n_ncdm] = ppw->theta_ncdm[n_ncdm];
+          shear_ncdm[n_ncdm] = ppw->shear_ncdm[n_ncdm];
+          delta_p_over_delta_rho_ncdm[n_ncdm] = ppw->cs2_ncdm[n_ncdm];
 
-          rho_delta_ncdm *= factor;
-          rho_plus_p_theta_ncdm *= k*factor;
-          rho_plus_p_shear_ncdm *= 2.0/3.0*factor;
-          delta_p_ncdm *= factor/3.;
 
-          delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
-          theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
-            (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-          shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
-            (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-          delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
 
         }
       }
@@ -6940,9 +7093,10 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon;
+  double q,epsilon,dlnf0_dlnq,qk_div_epsilon, factor_interacting, tau_nu_dot;
+  int ncdm_is_tca;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
-
+  double collision_0, collision_1, collision_2, collision_l;
   /* for use with curvature */
   double cotKgen, sqrt_absK;
   double s2_squared, ssqrt3;
@@ -6950,6 +7104,9 @@ int perturb_derivs(double tau,
   /* for use with dcdm and dr */
   double f_dr, fprime_dr;
 
+  double three_ceff2_ur,three_cvis2_ur;
+  double z, cs2before,cs2after,cvis2before,cvis2after,width,center;
+  double shear_ncdm,tau_nu_dot_ur,ur_is_tca;
   /** - rename the fields of the input structure (just to avoid heavy notations) */
 
   pppaw = parameters_and_workspace;
@@ -6991,6 +7148,7 @@ int perturb_derivs(double tau,
              error_message);
 
   /** - get metric perturbations with perturb_einstein() */
+  // printf("before %e\n", pvecmetric[ppw->index_mt_alpha]);
   class_call(perturb_einstein(ppr,
                               pba,
                               pth,
@@ -7002,6 +7160,7 @@ int perturb_derivs(double tau,
                               ppw),
              ppt->error_message,
              error_message);
+   // printf("after %e\n", pvecmetric[ppw->index_mt_alpha]);
 
   /** - compute related background quantities */
 
@@ -7396,6 +7555,53 @@ int perturb_derivs(double tau,
     if (pba->has_ur == _TRUE_) {
 
       /** - ----> if radiation streaming approximation is off */
+      // if(ppt->z_fs_ur>0 && 1/pvecback[pba->index_bg_a]-1 > ppt->z_fs_ur){
+      //   three_ceff2_ur = 0;
+      //   three_cvis2_ur = 0;
+      // }
+      // else if(ppt->z_fs_ur>0 && 1/pvecback[pba->index_bg_a]-1 < ppt->z_fs_ur){
+      //   three_ceff2_ur = 1.;
+      //   three_cvis2_ur = 1.;
+      // }
+      if(ppt->z_fs_ur>0){
+        z= 1/pvecback[pba->index_bg_a]-1;
+        center =ppt->z_fs_ur;
+        width = ppt->deltaz_fs_ur*ppt->z_fs_ur;//found to work well at capturing the sharp transition
+        cs2before = 0;
+        cvis2before = 0;
+        cs2after =ppt->three_ceff2_ur;
+        cvis2after =ppt->three_cvis2_ur;
+        // three_ceff2_ur = (cs2before - cs2after)*(tanh((z - center)/width) + 1)/2 + cs2after;
+        three_ceff2_ur = ppt->three_ceff2_ur;
+        three_cvis2_ur = (cvis2before - cvis2after)*(tanh((z - center)/width) + 1)/2 + cvis2after;
+
+        // printf("three_ceff2_ur %e ppt->z_fs_ur %e z %e \n",three_ceff2_ur,ppt->z_fs_ur,z);
+      }
+      else{
+        three_ceff2_ur = ppt->three_ceff2_ur;
+        three_cvis2_ur = ppt->three_cvis2_ur;
+      }
+
+
+
+      ur_is_tca = 0;
+      tau_nu_dot_ur = 0.0;
+
+      if(pba->ur_is_interacting == 1){
+        // printf("I am interacting\n");
+        //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+        // factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+        tau_nu_dot_ur = -a*pow(ppt->Geff_ur,2)*pow(0.71611*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
+        // printf("sqrt(tau_nu_dot_ur*tau_nu_dot_ur)*ppr->neutrino_tight_coupling %e a*pvecback[pba->index_bg_H] %e \n",sqrt(tau_nu_dot_ur*tau_nu_dot_ur)*ppr->neutrino_tight_coupling, a*pvecback[pba->index_bg_H] );
+        if(sqrt(tau_nu_dot_ur*tau_nu_dot_ur)*ppr->neutrino_tight_coupling > a*pvecback[pba->index_bg_H]){
+          ur_is_tca = 1;
+          y[pv->index_pt_shear_ur] = 8*(y[pv->index_pt_theta_ur]+metric_shear)/(15*tau_nu_dot_ur*ppt->alphal[2])/2;
+          // printf("switching on TCA: a  %e shear  %e tau/Mpc %e\n",a,y[pv->index_pt_shear_ur],tau);
+        }else{
+          //switch off the tca
+          ur_is_tca = 0;
+        }
+      }
 
       if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
 
@@ -7404,14 +7610,14 @@ int perturb_derivs(double tau,
           // standard term
           -4./3.*(y[pv->index_pt_theta_ur] + metric_continuity)
           // non-standard term, non-zero if if ceff2_ur not 1/3
-          +(1.-ppt->three_ceff2_ur)*a_prime_over_a*(y[pv->index_pt_delta_ur] + 4.*a_prime_over_a*y[pv->index_pt_theta_ur]/k/k);
+          +(1.-three_ceff2_ur)*a_prime_over_a*(y[pv->index_pt_delta_ur] + 4.*a_prime_over_a*y[pv->index_pt_theta_ur]/k/k);
 
         /** - -----> ur velocity */
         dy[pv->index_pt_theta_ur] =
           // standard term with extra coefficient (3 ceff2_ur), normally equal to one
-          k2*(ppt->three_ceff2_ur*y[pv->index_pt_delta_ur]/4.-s2_squared*y[pv->index_pt_shear_ur]) + metric_euler
+          k2*(three_ceff2_ur*y[pv->index_pt_delta_ur]/4.-s2_squared*y[pv->index_pt_shear_ur]) + metric_euler
           // non-standard term, non-zero if ceff2_ur not 1/3
-          -(1.-ppt->three_ceff2_ur)*a_prime_over_a*y[pv->index_pt_theta_ur];
+          -(1.-three_ceff2_ur)*a_prime_over_a*y[pv->index_pt_theta_ur];
 
         if(ppw->approx[ppw->index_ap_ufa] == (int)ufa_off) {
 
@@ -7421,7 +7627,8 @@ int perturb_derivs(double tau,
                  // standard term
                  8./15.*(y[pv->index_pt_theta_ur]+metric_shear)-3./5.*k*s_l[3]/s_l[2]*y[pv->index_pt_shear_ur+1]
                  // non-standard term, non-zero if cvis2_ur not 1/3
-                 -(1.-ppt->three_cvis2_ur)*(8./15.*(y[pv->index_pt_theta_ur]+metric_shear)));
+                 -(1.-three_cvis2_ur)*(8./15.*(y[pv->index_pt_theta_ur]+metric_shear)));
+
 
           /** - -----> exact ur l=3 */
           l = 3;
@@ -7439,6 +7646,16 @@ int perturb_derivs(double tau,
           dy[pv->index_pt_delta_ur+l] =
             k*(s_l[l]*y[pv->index_pt_delta_ur+l-1]-(1.+l)*cotKgen*y[pv->index_pt_delta_ur+l]);
 
+
+        if(pba->ur_is_interacting == 1 && ur_is_tca == 0){
+          //full hierarchy
+          for (l = 2; l < pv->l_max_ur; l++) {
+            dy[pv->index_pt_delta_ur+l] += tau_nu_dot_ur*ppt->alphal[l]*y[pv->index_pt_delta_ur+l];
+          }
+        }else if(pba->ur_is_interacting == 1 && ur_is_tca == 1){
+          // y[pv->index_pt_shear_ur] = 0;//
+          dy[pv->index_pt_shear_ur] = 0;
+        }
         }
 
         else {
@@ -7471,6 +7688,15 @@ int perturb_derivs(double tau,
               +2./3.*(y[pv->index_pt_theta_ur]+metric_ufa_class);
 
           }
+
+          if(pba->ur_is_interacting == 1 && ur_is_tca == 0){
+            //shear with interaction
+              dy[pv->index_pt_shear_ur] += tau_nu_dot_ur*ppt->alphal[2]*y[pv->index_pt_shear_ur];
+          }else if(pba->ur_is_interacting == 1 && ur_is_tca == 1){
+            // y[pv->index_pt_shear_ur] = 8*(y[pv->index_pt_theta_ur]+metric_shear)/(15*tau_nu_dot_ur*ppt->alphal[2]);
+            // y[pv->index_pt_shear_ur] = 0;//
+            dy[pv->index_pt_shear_ur] = 0;
+          }
         }
       }
     }
@@ -7478,16 +7704,31 @@ int perturb_derivs(double tau,
     /** - ---> non-cold dark matter (ncdm): massive neutrinos, WDM, etc. */
     //TBC: curvature in all ncdm
     if (pba->has_ncdm == _TRUE_) {
+      // printf("in derivs before ok\n");
 
       idx = pv->index_pt_psi0_ncdm1;
+      for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+        ncdm_is_tca = 0;
+        tau_nu_dot = 0.0;
 
+        if(pba->ncdm_is_interacting[n_ncdm] == 1){
+          // printf("I am interacting\n");
+          //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+          tau_nu_dot = -a*pow(ppt->Geff_neutrinos[n_ncdm],2)*pow(pba->T_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_*1e-6/a,5)*2.49e34;//Tnu in MeV, Geff in Mev^-2, 2.49e34 to converst to Mpc^-1
+          if(sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling > a*pvecback[pba->index_bg_H]){
+            ncdm_is_tca = 1;
+          }else{
+            //switch off the tca
+            ncdm_is_tca = 0;
+          }
+        }
       /** - ----> first case: use a fluid approximation (ncdmfa) */
       //TBC: curvature
+      // printf("tau_nu_dot*ppr->neutrino_tight_coupling %e pvecback[pba->index_bg_H] %e\n",sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling,pvecback[pba->index_bg_H]);
       if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on) {
-
         /** - -----> loop over species */
 
-        for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+
 
           /** - -----> define intermediate quantitites */
 
@@ -7502,6 +7743,7 @@ int perturb_derivs(double tau,
              fluid) */
 
           /* c_vis is introduced in order to close the system */
+
 
           /* different ansatz for sound speed c_eff and viscosity speed c_vis */
           if (ppr->ncdm_fluid_approximation == ncdmfa_mb) {
@@ -7549,24 +7791,28 @@ int perturb_derivs(double tau,
             dy[idx+2] = -3.0*(a_prime_over_a*(2./3.-ca2_ncdm-pseudo_p_ncdm/p_ncdm_bg/3.)+1./tau)*y[idx+2]
               +8.0/3.0*cvis2_ncdm/(1.0+w_ncdm)*s_l[2]*(y[idx+1]+metric_ufa_class);
 
+
           }
+
+          dy[pv->index_pt_delta_ncdm+n_ncdm] = dy[idx];//dummy but necessary
+          dy[pv->index_pt_theta_ncdm+n_ncdm] = dy[idx+1];//dummy but necessary
 
           /** - -----> jump to next species */
 
           idx += pv->l_max_ncdm[n_ncdm]+1;
-        }
-      }
 
+
+
+
+        }
       /** - ----> second case: use exact equation (Boltzmann hierarchy on momentum grid) */
 
       else {
-
-        /** - -----> loop over species */
-
-        for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+        //VP added: check if the TCA is off
+        if(ncdm_is_tca == 0){
+          // printf("I am not TCA.\n");
 
           /** - -----> loop over momentum */
-
           for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
 
             /** - -----> define intermediate quantities */
@@ -7575,20 +7821,27 @@ int perturb_derivs(double tau,
             q = pba->q_ncdm[n_ncdm][index_q];
             epsilon = sqrt(q*q+a2*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
             qk_div_epsilon = k*q/epsilon;
+            if(pba->ncdm_is_interacting[n_ncdm] == 1){
+              //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+              factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+
+            }else{
+              factor_interacting = 1.0;
+            }
 
             /** - -----> ncdm density for given momentum bin */
 
-            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.;
+            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.*factor_interacting;
 
             /** - -----> ncdm velocity for given momentum bin */
 
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
-              -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq;
+              -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq*factor_interacting;
 
             /** - -----> ncdm shear for given momentum bin */
 
             dy[idx+2] = qk_div_epsilon/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
-              -s_l[2]*metric_shear*2./15.*dlnf0_dlnq;
+              -s_l[2]*metric_shear*2./15.*dlnf0_dlnq*factor_interacting;
 
             /** - -----> ncdm l>3 for given momentum bin */
 
@@ -7601,11 +7854,181 @@ int perturb_derivs(double tau,
 
             dy[idx+l] = qk_div_epsilon*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
 
+            if(pba->ncdm_is_interacting[n_ncdm] == 1){
+              // printf("I am not TCA but I am interacting!\n");
+              collision_2 = ppt->Clarray[index_q+2*pv->q_size_ncdm[n_ncdm]];
+              // printf("q %e ,2,collision_2 %e\n", q, collision_2);
+              // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,2,&collision_2),
+              //            pth->error_message,
+              //            pth->error_message);
+              // printf("a %e tau_nu_dotw %e collision_2 %e y[idx+2] %e prduct %e dy %e\n",a,tau_nu_dot,collision_2,y[idx+2],tau_nu_dot*collision_2*y[idx+2] ,dy[idx+2]);
+              dy[idx+2] += collision_2*tau_nu_dot*y[idx+2];
+              // printf("true : a %e y[idx+0]%e y[idx+1]%e y[idx+2]%e ratio %e\n",a,y[idx+0],y[idx+1],y[idx+2],sqrt(tau_nu_dot*tau_nu_dot)*ppr->neutrino_tight_coupling/pvecback[pba->index_bg_H]);
+              // printf("true : a %e dy[idx+0]%e dy[idx+1]%e dy[idx+2] %e \n",a,dy[idx+0],dy[idx+1],dy[idx+2]);
+              for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
+                collision_l = 0;
+                collision_l = ppt->Clarray[index_q+(l)*pv->q_size_ncdm[n_ncdm]];
+                // printf("q %e l %d collision_l %e\n", q,l,collision_l);
+                // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
+                //            pth->error_message,
+                //            pth->error_message);
+                dy[idx+l] += collision_l*tau_nu_dot*y[idx+l];
+                // printf("true : a %e y[idx+l] %e dy[idx+%d] %e \n",a,y[idx+l],l,dy[idx+l]);
+              }
+              // class_call(perturbations_collision_term_neutrinos_interpolate(ppr,ppt,q,l,&collision_l),
+              //            pth->error_message,
+              //            pth->error_message);
+              // dy[idx+l] += collision_l*factor_col*y[idx+l];
+            }
+
             /** - -----> jump to next momentum bin or species */
+            // printf("before a %e y[idx+0]%e y[idx+1]%e y[idx+2]%e\n",a,y[idx+0],y[idx+1],y[idx+2]);
+
+
 
             idx += (pv->l_max_ncdm[n_ncdm]+1);
           }
+
+
+          /*VP modif: for TCA we still follow these dummy variables */
+          /** - -----> define intermediate quantitites */
+
+          rho_ncdm_bg = pvecback[pba->index_bg_rho_ncdm1+n_ncdm]; /* background density */
+          p_ncdm_bg = pvecback[pba->index_bg_p_ncdm1+n_ncdm]; /* background pressure */
+          pseudo_p_ncdm = pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm]; /* pseudo-pressure (see CLASS IV paper) */
+          w_ncdm = p_ncdm_bg/rho_ncdm_bg; /* equation of state parameter */
+          ca2_ncdm = w_ncdm/3.0/(1.0+w_ncdm)*(5.0-pseudo_p_ncdm/p_ncdm_bg); /* adiabatic sound speed */
+
+          /* c_eff is (delta p / delta rho) in the gauge under
+             consideration (not in the gauge comoving with the
+             fluid) */
+
+          /* c_vis is introduced in order to close the system */
+
+
+          /* different ansatz for sound speed c_eff and viscosity speed c_vis */
+          if (ppr->ncdm_fluid_approximation == ncdmfa_mb) {
+            ceff2_ncdm = ca2_ncdm;
+            cvis2_ncdm = 3.*w_ncdm*ca2_ncdm;
+          }
+          if (ppr->ncdm_fluid_approximation == ncdmfa_hu) {
+            ceff2_ncdm = ca2_ncdm;
+            cvis2_ncdm = w_ncdm;
+          }
+          if (ppr->ncdm_fluid_approximation == ncdmfa_CLASS || ppr->ncdm_fluid_approximation == ncdmfa_none) {
+            ceff2_ncdm = ca2_ncdm;
+            cvis2_ncdm = 3.*w_ncdm*ca2_ncdm;
+          }
+          // printf("here in perts 7780 %d %d %d\n",pv->index_pt_delta_ncdm,pv->index_pt_theta_ncdm,idx);
+          // printf("here in perts 7780 %e\n",w_ncdm);
+
+          dy[pv->index_pt_delta_ncdm+n_ncdm] = -(1.0+w_ncdm)*(y[pv->index_pt_theta_ncdm+n_ncdm]+metric_continuity)-
+            3.0*a_prime_over_a*(ceff2_ncdm-w_ncdm)*y[pv->index_pt_delta_ncdm+n_ncdm];
+
+          /** - -----> exact euler equation */
+
+          dy[pv->index_pt_theta_ncdm+n_ncdm] = -a_prime_over_a*(1.0-3.0*ca2_ncdm)*y[pv->index_pt_theta_ncdm+n_ncdm]+
+            ceff2_ncdm/(1.0+w_ncdm)*k2*y[pv->index_pt_delta_ncdm+n_ncdm]+ metric_euler;
         }
+        else{
+
+          // printf("I am TCA.\n");
+            /** - -----> define intermediate quantitites */
+
+            rho_ncdm_bg = pvecback[pba->index_bg_rho_ncdm1+n_ncdm]; /* background density */
+            p_ncdm_bg = pvecback[pba->index_bg_p_ncdm1+n_ncdm]; /* background pressure */
+            pseudo_p_ncdm = pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm]; /* pseudo-pressure (see CLASS IV paper) */
+            w_ncdm = p_ncdm_bg/rho_ncdm_bg; /* equation of state parameter */
+            ca2_ncdm = w_ncdm/3.0/(1.0+w_ncdm)*(5.0-pseudo_p_ncdm/p_ncdm_bg); /* adiabatic sound speed */
+
+            /* c_eff is (delta p / delta rho) in the gauge under
+               consideration (not in the gauge comoving with the
+               fluid) */
+
+            /* c_vis is introduced in order to close the system */
+
+
+            /* different ansatz for sound speed c_eff and viscosity speed c_vis */
+            if (ppr->ncdm_fluid_approximation == ncdmfa_mb) {
+              ceff2_ncdm = ca2_ncdm;
+              cvis2_ncdm = 3.*w_ncdm*ca2_ncdm;
+            }
+            if (ppr->ncdm_fluid_approximation == ncdmfa_hu) {
+              ceff2_ncdm = ca2_ncdm;
+              cvis2_ncdm = w_ncdm;
+            }
+            if (ppr->ncdm_fluid_approximation == ncdmfa_CLASS || ppr->ncdm_fluid_approximation == ncdmfa_none) {
+              ceff2_ncdm = ca2_ncdm;
+              cvis2_ncdm = 3.*w_ncdm*ca2_ncdm;
+            }
+          //also follow the fluid variable for the tca
+          /** - -----> exact continuity equation */
+
+            shear_ncdm = 8*(y[pv->index_pt_theta_ncdm]+metric_shear)/(15*ppt->alphal[2]*tau_nu_dot)/2;//ppt->alphal[0] = alpha_2
+
+            dy[pv->index_pt_delta_ncdm+n_ncdm] = -(1.0+w_ncdm)*(y[pv->index_pt_theta_ncdm+n_ncdm]+metric_continuity)-
+              3.0*a_prime_over_a*(ceff2_ncdm-w_ncdm)*y[pv->index_pt_delta_ncdm+n_ncdm];
+
+
+            /** - -----> exact euler equation */
+            // printf("-k2*ppw->shear_ncdm[n_ncdm] %e tau_nu_dot %e index_pt_theta_ncdm %e\n", -k2*shear_ncdm,tau_nu_dot,y[pv->index_pt_theta_ncdm]);
+            dy[pv->index_pt_theta_ncdm+n_ncdm] = -a_prime_over_a*(1.0-3.0*ca2_ncdm)*y[pv->index_pt_theta_ncdm+n_ncdm]+
+              ceff2_ncdm/(1.0+w_ncdm)*k2*y[pv->index_pt_delta_ncdm+n_ncdm]-k2*shear_ncdm+ metric_euler;
+            // printf("a %e delta %e  theta %e metric_continuity %e metric_euler %e shear_ncdm %e  dy[pv->index_pt_theta_ncdm+n_ncdm]  %e dy[pv->index_pt_delta_ncdm+n_ncdm] %e \n",a,y[pv->index_pt_delta_ncdm+n_ncdm], y[pv->index_pt_theta_ncdm+n_ncdm],metric_continuity,metric_shear,shear_ncdm,dy[pv->index_pt_theta_ncdm+n_ncdm],dy[pv->index_pt_delta_ncdm+n_ncdm]);
+
+            /** - -----> define intermediate quantities */
+
+            /** - -----> loop over momentum */
+            for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
+
+              /** - -----> define intermediate quantities */
+
+              dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+              q = pba->q_ncdm[n_ncdm][index_q];
+              epsilon = sqrt(q*q+a2*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+              qk_div_epsilon = k*q/epsilon;
+              if(pba->ncdm_is_interacting[n_ncdm] == 1){
+                //in this case, we follow the formalism of Kreisch et al. that evolves nu_l = Theta_l^CLASS*(-4)/dlnf0_dlnq
+                factor_interacting = (-4)/pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+              }else{
+                factor_interacting = 1.0;
+              }
+
+              /** - -----> ncdm density for given momentum bin */
+
+              dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.*factor_interacting;
+
+              /** - -----> ncdm velocity for given momentum bin */
+
+              dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
+                -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq*factor_interacting;
+
+              /** - -----> ncdm shear for given momentum bin */
+
+              dy[idx+2] = qk_div_epsilon/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
+                -s_l[2]*metric_shear*2./15.*dlnf0_dlnq*factor_interacting;
+
+              /** - -----> ncdm l>3 for given momentum bin */
+
+              for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
+                dy[idx+l] = qk_div_epsilon/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]);
+              }
+
+              /** - -----> ncdm lmax for given momentum bin (truncation as in Ma and Bertschinger)
+                  but with curvature taken into account a la arXiv:1305.3261 */
+
+              dy[idx+l] = qk_div_epsilon*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
+
+              // /** - -----> jump to next momentum bin or species */
+
+              idx += (pv->l_max_ncdm[n_ncdm]+1);
+            }
+        }
+
+      }
+
+
+
       }
     }
 
@@ -8341,5 +8764,277 @@ int perturb_rsa_delta_and_theta(
   }
 
   return _SUCCESS_;
+
+}
+
+
+
+
+
+
+/**
+//  * Read files from Francis-Yan Cyr-Racine for interacting neutrinos
+//  */
+int perturbations_collision_term_neutrinos_init(
+                                   struct precision * ppr,
+                                   struct perturbs * ppt
+                                   ) {
+
+  FILE * fA;
+  FILE * fB;
+  char line[_LINE_LENGTH_MAX_];
+  char * left;
+
+  int num_ell=0;
+  int num_ell_2=0;
+  int num_q=0;
+
+  int array_line=0,i;
+
+
+  /* the following file is assumed to contain (apart from comments and blank lines):
+     - the two numbers (num_omegab, num_deltaN) = number of values of BBN free parameters
+     - three columns (omegab, deltaN, YHe) where omegab = Omega0_b h^2 and deltaN = Neff-3.046 by definition
+     - omegab and deltaN are assumed to be arranged as:
+     q1 ell YHe
+     q2 deltaN1 YHe
+     .....
+     omegab1 delatN2 YHe
+     omegab2 deltaN2 YHe
+     .....
+  */
+
+  class_open(fA,ppr->collision_term_Cl_file, "r",ppt->error_message);
+  class_open(fB,ppr->collision_term_alphal_file, "r",ppt->error_message);
+  // printf("opening file for reading! %e %e\n",q,ell);
+
+  /* go through each line */
+  while (fgets(line,_LINE_LENGTH_MAX_-1,fA) != NULL) {
+
+    /* eliminate blank spaces at beginning of line */
+    left=line;
+    while (left[0]==' ') {
+      left++;
+    }
+
+    /* check that the line is neither blank neither a comment. In
+       ASCII, left[0]>39 means that first non-blank character might
+       be the beginning of some data (it is not a newline, a #, a %,
+       etc.) */
+    if (left[0] > 39) {
+
+      /* if the line contains data, we must interpret it. If
+         (num_omegab, num_deltaN)=(0,0), the current line must contain
+         their values. Otherwise, it must contain (omegab, delatN,
+         YHe). */
+      if ((num_q==0) && (num_ell==0)) {
+
+        /* read (num_omegab, num_deltaN), infer size of arrays and allocate them */
+        class_test(sscanf(line,"%d %d",&num_q,&num_ell) != 2,
+                   ppt->error_message,
+                   "could not read value of parameters (num_q,num_ell) in file %s\n",ppr->collision_term_Cl_file);
+        // printf("qvalues %d ellvalues %d\n",num_q,num_ell);
+        class_alloc(ppt->ellarray,num_ell*sizeof(double),ppt->error_message);
+        class_alloc(ppt->qarray,num_q*sizeof(double),ppt->error_message);
+        class_alloc(ppt->Clarray,num_ell*num_q*sizeof(double),ppt->error_message);
+        class_alloc(ppt->ddCl,num_ell*num_q*sizeof(double),ppt->error_message);
+        class_alloc(ppt->Cl_at_q,num_ell*sizeof(double),ppt->error_message);
+        class_alloc(ppt->ddCl_at_q,num_ell*sizeof(double),ppt->error_message);
+        ppt->number_q_values = num_q;
+        ppt->number_ell_values = num_ell;
+        array_line=0;
+
+      }
+      else {
+        // printf("array_linenum_q%d array_line/num_ell %d\n",array_line%num_q,array_line/num_q);
+        /* read (q, ell, Cl) */
+        class_test(sscanf(line,"%lg %lg %lg",
+                          &(ppt->qarray[array_line%num_q]),
+                          &(ppt->ellarray[array_line/num_q]),
+                          &(ppt->Clarray[array_line])
+                          ) != 3,
+                   ppt->error_message,
+                   "could not read value of parameters (q,ell,Cl) in file %s\n",ppr->collision_term_Cl_file);
+        // printf("qarray[array_line] %e ellarray[array_line] %e Clarray[array_line] %e \n",ppt->qarray[array_line%num_q],ppt->ellarray[array_line/num_q],ppt->Clarray[array_line]);
+        array_line ++;
+
+      }
+    }
+  }
+  while (fgets(line,_LINE_LENGTH_MAX_-1,fB) != NULL) {
+
+    /* eliminate blank spaces at beginning of line */
+    left=line;
+    while (left[0]==' ') {
+      left++;
+    }
+
+    /* check that the line is neither blank neither a comment. In
+       ASCII, left[0]>39 means that first non-blank character might
+       be the beginning of some data (it is not a newline, a #, a %,
+       etc.) */
+    if (left[0] > 39) {
+
+      /* if the line contains data, we must interpret it. If
+         (num_omegab, num_deltaN)=(0,0), the current line must contain
+         their values. Otherwise, it must contain (omegab, delatN,
+         YHe). */
+      if ((num_ell_2==0)) {
+
+        /* read (num_omegab, num_deltaN), infer size of arrays and allocate them */
+        class_test(sscanf(line,"%d",&num_ell_2) != 1,
+                   ppt->error_message,
+                   "could not read value of parameters (num_ell) in file %s\n",ppr->collision_term_alphal_file);
+        class_test(num_ell_2 != num_ell,ppt->error_message,
+          "the size of the file %s is different from %s. Please check your files.\n",ppr->collision_term_alphal_file,ppr->collision_term_Cl_file);
+        // printf("qvalues %d ellvalues %d\n",num_q,num_ell);
+        class_alloc(ppt->alphal,num_ell_2*sizeof(double),ppt->error_message);
+        array_line=0;
+
+      }
+      else {
+        // printf("array_linenum_q%d array_line/num_ell %d\n",array_line%num_q,array_line/num_q);
+        /* read (q, ell, Cl) */
+        class_test(sscanf(line,"%lg %lg",
+                          &(ppt->ellarray[array_line]),
+                          &(ppt->alphal[array_line])
+                        ) != 2,
+                   ppt->error_message,
+                   "could not read value of parameters (ell,alphal) in file %s\n",ppr->collision_term_alphal_file);
+        // printf("qarray[array_line] %e ellarray[array_line] %e Clarray[array_line] %e \n",ppt->qarray[array_line%num_q],ppt->ellarray[array_line/num_q],ppt->Clarray[array_line]);
+        array_line ++;
+
+      }
+    }
+  }
+
+  // printf("Interpolation is starting! %e %e %e %e\n",q,ell,qarray[0],qarray[num_q-1]);
+
+  fclose(fA);
+  fclose(fB);
+
+  for(i =0;i<ppt->number_q_values;i++){
+    if(i==0)ppt->qarray[i]*=0.999;
+    else ppt->qarray[i]*=1.001;
+  }
+  // for(int i =0;i<ppt->number_ell_values;i++){
+  //   if(i==0)ppt->ellarray[i]*=0.999;
+  //   else ppt->ellarray[i]*=1.001;
+  // }
+
+  /** - spline in one dimension (along q) */
+  class_call(array_spline_table_lines(ppt->qarray,
+                                      num_q,
+                                      ppt->Clarray,
+                                      num_ell,
+                                      ppt->ddCl,
+                                      _SPLINE_NATURAL_,
+                                      ppt->error_message),
+             ppt->error_message,
+             ppt->error_message);
+
+ /** - spline in remaining dimension (along omegab) */
+ class_call(array_spline_table_lines(ppt->ellarray,
+                                     num_ell,
+                                     ppt->Cl_at_q,
+                                     1,
+                                     ppt->ddCl_at_q,
+                                     _SPLINE_NATURAL_,
+                                     ppt->error_message),
+            ppt->error_message,
+            ppt->error_message);
+
+  return _SUCCESS_;
+
+}
+
+int perturbations_collision_term_neutrinos_interpolate(
+                                   struct precision * ppr,
+                                   struct perturbs * ppt,
+                                   double q,
+                                   double ell,
+                                   double * collision_term_at_ell
+                                   ) {
+
+  int last_index, i;
+  double collision_term = 0;
+  class_test(q < ppt->qarray[0],
+          ppt->error_message,
+          "You have asked for an unrealistic small value q = %e < %e.",
+          q,ppt->qarray[0]);
+
+  class_test(q > ppt->qarray[ppt->number_q_values-1],
+          ppt->error_message,
+          "You have asked for an unrealistic high value q = %e > %e.",
+          q,ppt->qarray[ppt->number_q_values-1]);
+
+  // class_test(ell < ppt->ellarray[0],
+  //         ppt->error_message,
+  //         "You have asked for an unrealistic small value of ell = %e < %e.",
+  //         ell,ppt->ellarray[0]);
+  //
+  // class_test(ell > ppt->ellarray[ppt->number_ell_values-1],
+  //         ppt->error_message,
+  //         "You have asked for an unrealistic high value of ell = %e > %e.",
+  //         ell, ppt->ellarray[ppt->number_ell_values-1]);
+
+  // printf("ready to interp \n");
+  /** - interpolate in one dimension (along q) */
+    class_call(array_interpolate_spline(ppt->qarray,
+                                     ppt->number_q_values,
+                                     ppt->Clarray,
+                                     ppt->ddCl,
+                                     ppt->number_ell_values,
+                                     q,
+                                     &last_index,
+                                     ppt->Cl_at_q,
+                                     ppt->number_ell_values,
+                                     ppt->error_message),
+            ppt->error_message,
+            ppt->error_message);
+    for(i = 0; i<ppt->number_ell_values;i++){
+      //since ell is always gonna be equal to one of the l values we dont have to interpolate
+      //we just find the corresponding Cl_at_q value.
+      //if ell is not equal to one of the tabulated l values, we assume it is because the collision term is 0.
+      // printf("%e %e ppt->Cl_at_q %e\n",q,ell,ppt->Cl_at_q[i],ppt->ellarray[i]);
+      if((int) ell == (int) ppt->ellarray[i]){
+        // printf("found ell %d i = %d ppt->Cl_at_q[i] %e\n",(int) ell, i,ppt->Cl_at_q[i]);
+        collision_term = ppt->Cl_at_q[i];
+      }
+    }
+    if(collision_term == 0)printf("weird I did not find q %e ell %e\n",q,ell);
+
+
+  // /** - interpolate in remaining dimension (along omegab) */
+  // // class_call(array_interpolate_spline(ppt->ellarray,
+  // //                                  ppt->number_ell_values,
+  // //                                  ppt->Cl_at_q,
+  // //                                  ppt->ddCl_at_q,
+  // //                                  1,
+  // //                                  ell,
+  // //                                  &last_index,
+  // //                                  &collision_term,
+  // //                                  1,
+  // //                                  ppt->error_message),
+  // //         ppt->error_message,
+  // //         ppt->error_message);
+  *collision_term_at_ell = collision_term;
+  class_test(collision_term>10000,  ppt->error_message,
+   "the collision term has crapped out %e at q %e ell %e .",collision_term,q,ell);
+  // printf("ell %e q %e collision_term %e\n",ell,q,collision_term);
+  return _SUCCESS_;
+}
+
+int perturbations_collision_term_neutrinos_free(
+                                   struct perturbs * ppt
+                                   ){
+  /** - deallocate arrays */
+  free(ppt->qarray);
+  free(ppt->ellarray);
+  free(ppt->Clarray);
+  free(ppt->ddCl);
+  free(ppt->Cl_at_q);
+  free(ppt->ddCl_at_q);
+  free(ppt->alphal);
 
 }

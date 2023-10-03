@@ -431,6 +431,8 @@ struct precision
   /* - for bbn */
 /* @cond INCLUDE_WITH_DOXYGEN */
   FileName sBBN_file;
+  FileName collision_term_Cl_file;
+  FileName collision_term_alphal_file;
 /* @endcond */
   /* - for recombination */
 
@@ -611,6 +613,7 @@ struct precision
   double ur_fluid_trigger_tau_over_tau_k;
 
   int ncdm_fluid_approximation; /**< method for non-cold dark matter fluid approximation */
+  double neutrino_tight_coupling; /**< when rate*neutrino_tight_coupling>Hubble assume neutrino tight coupling; default = 0, no tight-coupling. */
 
   /**
    * when to switch off ncdm (massive neutrinos / non-cold

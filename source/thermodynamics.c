@@ -1178,6 +1178,7 @@ int thermodynamics_helium_from_bbn(
 
       }
       else {
+        // printf("array_line%num_omegab %d array_line/num_omegab %d\n",array_line%num_omegab,array_line/num_omegab);
 
         /* read (omegab, deltaN, YHe) */
         class_test(sscanf(line,"%lg %lg %lg",
