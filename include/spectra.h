@@ -184,7 +184,12 @@ struct spectra {
                     */
 
   double sigma8;    /**< sigma8 parameter */
-
+  double kp_km_per_s; /**<Lya pivot scale in km/s, default is 0.009 km/s*/
+  double kp_lya; /**<Lya pivot scale in Mpc h^1, computed in nonlinear.c for a given kp_km_per_s and a given cosmology*/
+  double zp_lya;/**<Lya pivot redshit, default is 3*/
+  double n_L_lya;/**<tilt at pivot scale and redshift */
+  double Delta_Lsquared_lya;/**<amplitude at pivot scale and redshift  */
+  short get_lyman_alpha_tilt_and_amplitude; /**<flag to compute lyman alpha tilt and amplitude; default is false */
   double sigma8_cb; /**< if ncdm present: contribution to sigma8 from only baryons and cdm */
 
   double * ln_pk_l;   /**q< Total linear matter power spectrum, just
@@ -477,6 +482,17 @@ extern "C" {
 				       double * pk_tot_out, /* (must be already allocated with kvec_size*zvec_size) */
                        double * pk_cb_tot_out,
 				       int nonlinear);
+
+
+
+int spectra_pk_tilt_at_k_and_z(
+                               struct background * pba,
+                               struct primordial * ppm,
+                               struct spectra * psp,
+                               double k,
+                               double z,
+                               double * pk_tilt
+                               );
 
 #ifdef __cplusplus
 }

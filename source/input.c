@@ -2558,6 +2558,24 @@ int input_read_parameters(
 
   }
 
+  class_call(parser_read_string(pfc,"get_lyman_alpha_tilt_and_amplitude",&string1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+
+  if ((flag1 == _TRUE_) && ((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL))) {
+
+    psp->get_lyman_alpha_tilt_and_amplitude = _TRUE_;
+    class_read_double("kp_km_per_s",psp->kp_km_per_s);
+    class_read_double("zp_lya",psp->zp_lya);
+    class_test(ppt->z_max_pk<param1, errmsg, "You requested get_lyman_alpha_tilt_and_amplitude but have ppt->z_max_pk < pnl->zp_lya. Please update.");
+  }
+  else{
+    psp->get_lyman_alpha_tilt_and_amplitude = _FALSE_;
+  }
+
+
+
+
   /** (g) amount of information sent to standard output (none if all set to zero) */
 
   class_read_int("background_verbose",
@@ -3252,7 +3270,9 @@ int input_default_params(
 
   psp->z_max_pk = pop->z_pk[0];
   psp->non_diag=0;
-
+  psp->kp_km_per_s=0.009;
+  psp->zp_lya = 3;
+  psp->get_lyman_alpha_tilt_and_amplitude = _FALSE_;
   /** - nonlinear structure */
 
   /** - lensing structure */

@@ -86,10 +86,10 @@ cdef class Class:
     cdef lensing le
     cdef file_content fc
 
-    cpdef int ready # Flag to see if classy can currently compute
-    cpdef int allocated # Flag to see if classy structs are allocated already
-    cpdef object _pars # Dictionary of the parameters
-    cpdef object ncp   # Keeps track of the structures initialized, in view of cleaning.
+    cdef int ready # Flag to see if classy can currently compute
+    cdef int allocated # Flag to see if classy structs are allocated already
+    cdef object _pars # Dictionary of the parameters
+    cdef object ncp   # Keeps track of the structures initialized, in view of cleaning.
 
     # Defining two new properties to recover, respectively, the parameters used
     # or the age (set after computation). Follow this syntax if you want to
@@ -114,7 +114,7 @@ cdef class Class:
         self.set(**_pars)
 
     def __cinit__(self, default=False):
-        cpdef char* dumc
+        cdef char* dumc
         self.ready = False
         self.allocated = False
         self._pars = {}
@@ -781,7 +781,29 @@ cdef class Class:
         free(pk_ic)
         free(pk_cb_ic)
         return pk_cb
+    # Gives effective logarithmic slope of P_L(k,z) (total matter) for a given (k,z)
+    def pk_tilt(self,double k,double z):
+        """
+	Gives effective logarithmic slope of P_L(k,z) (total matter) for a given k and z
+        (k is the wavenumber in units of 1/Mpc, z is the redshift, the output is dimensionless)
 
+        .. note::
+
+            there is an additional check to verify whether output contains `mPk` and whether k is in the right range
+
+        """
+        cdef double pk_tilt
+
+        if (self.pt.has_pk_matter == _FALSE_):
+            raise CosmoSevereError("No power spectrum computed. In order to get pk_tilt(k,z) you must add mPk to the list of outputs.")
+
+#        if (k < self.sp.k[1] or k > self.sp.k[self.fo.ln_k_size-2]):
+#            raise CosmoSevereError("In order to get pk_tilt at k=%e 1/Mpc, you should compute P(k,z) in a wider range of k's"%k)
+
+        if spectra_pk_tilt_at_k_and_z(&self.ba,&self.pm,&self.sp,k,z,&pk_tilt)==_FAILURE_:
+            raise CosmoSevereError(self.sp.error_message)
+
+        return pk_tilt
     # Gives the linear pk for a given (k,z)
     def pk_lin(self,double k,double z):
         """
@@ -1721,6 +1743,12 @@ cdef class Class:
                 value = self.sp.sigma8
             elif name == 'sigma8_cb':
                 value = self.sp.sigma8_cb
+            elif name == 'n_L_lya':
+                value = self.sp.n_L_lya
+            elif name == 'Delta_Lsquared_lya':
+                value = self.sp.Delta_Lsquared_lya
+            elif name == 'kp_lya':
+                value = self.sp.kp_lya
             else:
                 raise CosmoSevereError("%s was not recognized as a derived parameter" % name)
             derived[name] = value

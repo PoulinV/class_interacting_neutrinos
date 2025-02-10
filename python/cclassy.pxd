@@ -196,6 +196,9 @@ cdef extern from "class.h":
         double* ln_tau
         double* ln_tau_nl
         double sigma8
+        double n_L_lya
+        double Delta_Lsquared_lya
+        double kp_lya
         double sigma8_cb
         double alpha_II_2_20
         double alpha_RI_2_20
@@ -308,7 +311,14 @@ cdef extern from "class.h":
         double * output_cb_tot,
         double * output_cb_ic
         )
-
+    int spectra_pk_tilt_at_k_and_z(
+        void * pba,
+        void * ppm,
+        void * psp,
+        double k,
+        double z,
+        double * pk_tilt
+        )
     int spectra_pk_at_k_and_z(
         void* pba,
         void * ppm,

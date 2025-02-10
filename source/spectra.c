@@ -1006,6 +1006,62 @@ int spectra_pk_at_k_and_z(
 
 }
 
+
+/**
+ * Return the logarithmic slope of P(k,z) for a given (k,z), a given pk type (_m, _cb)
+ * (computed with linear P_L if pk_output = pk_linear, nonlinear P_NL if pk_output = pk_nonlinear)
+ *
+ * @param pba         Input: pointer to background structure
+ * @param ppm         Input: pointer to primordial structure
+ * @param psp         Input: pointer to spectra structure
+ * @param pk_output   Input: linear or nonlinear
+ * @param k           Input: wavenumber in 1/Mpc
+ * @param z           Input: redshift
+ * @param index_pk    Input: index of pk type (_m, _cb)
+ * @param pk_tilt     Output: logarithmic slope of P(k,z)
+ * @return the error status
+ */
+
+int spectra_pk_tilt_at_k_and_z(
+                               struct background * pba,
+                               struct primordial * ppm,
+                               struct spectra * psp,
+                               double k,
+                               double z,
+                               double * pk_tilt
+                               ) {
+
+  double dlnk;
+  double out_pk1,out_pk2;
+  double pk;
+  double * pk_ic = NULL;
+
+  double pk_cb;
+  double * pk_cb_ic = NULL;
+
+
+  /* typical step dln(k) on which we believe that out results are not
+     dominated by numerical errors and that the P(k,z) is slowly
+     varying */
+
+  dlnk = psp->ln_k[psp->ln_k_size-1] - psp->ln_k[psp->ln_k_size-2];
+
+    class_call(spectra_pk_at_k_and_z(pba,ppm,psp,k/(1.+dlnk),z,&out_pk1,pk_ic,&pk_cb,pk_cb_ic),
+               psp->error_message,
+               psp->error_message);
+
+    class_call(spectra_pk_at_k_and_z(pba,ppm,psp,k*(1.+dlnk),z,&out_pk2,pk_ic,&pk_cb,pk_cb_ic),
+               psp->error_message,
+               psp->error_message);
+
+  /* logarithmic derivative: n_eff = (logPk2 - logPk1)/(logk2-logk1) */
+
+  *pk_tilt = (log(out_pk2)-log(out_pk1))/(2.*log(1.+dlnk));
+
+  return _SUCCESS_;
+
+}
+
 /**
  * Non-linear total matter power spectrum for arbitrary redshift.
  *
@@ -2938,6 +2994,9 @@ int spectra_pk(
   double source_ic1_cb;
   double source_ic2_cb;
   double pk_cb_tot=0.,ln_pk_cb_tot=0.;
+  double kp_lya_cubed, tau_lya, Hubble;
+  double * pvecback_lya;
+  int last_index=0;
 
   /** - check the presence of scalar modes */
 
@@ -3224,6 +3283,62 @@ int spectra_pk(
       fprintf(stdout," -> sigma8 (ONLY CDM+BARYON)=%g (computed till k = %g h/Mpc)\n",
               psp->sigma8_cb,
               exp(psp->ln_k[psp->ln_k_size-1])/pba->h);
+    }
+  }
+
+
+  if(psp->get_lyman_alpha_tilt_and_amplitude == _TRUE_){
+
+  /** compute and store the tilt of the power spectrum at lyman_alpha scale */
+  class_call(background_tau_of_z(
+                                 pba,
+                                 psp->zp_lya,
+                                 &tau_lya
+                                 ),
+             pba->error_message,
+             psp->error_message);
+
+ class_alloc(pvecback_lya,pba->bg_size*sizeof(double),psp->error_message);
+
+  class_call(background_at_tau(pba,tau_lya,pba->long_info,pba->inter_normal,&last_index,pvecback_lya),
+             pba->error_message,
+             psp->error_message);
+
+
+  Hubble = pvecback_lya[pba->index_bg_H];
+  psp->kp_lya = psp->kp_km_per_s*_c_/1000/(1.+psp->zp_lya)*Hubble; //in Mpc^-1
+  kp_lya_cubed=psp->kp_lya*psp->kp_lya*psp->kp_lya;
+  free(pvecback_lya);
+
+  class_call(spectra_pk_tilt_at_k_and_z(pba,
+                                          ppm,
+                                          psp,
+                                          psp->kp_lya,
+                                          psp->zp_lya,
+                                          &psp->n_L_lya),
+             psp->error_message,
+             psp->error_message);
+/** get amplitude at lyman alpha pivot scale */
+  class_call(spectra_pk_at_k_and_z(pba,
+                                     ppm,
+                                     psp,
+                                     psp->kp_lya,
+                                     psp->zp_lya,
+                                     &psp->Delta_Lsquared_lya,
+                                     NULL,
+				     NULL,
+				     NULL),
+             psp->error_message,
+             psp->error_message);
+  psp->Delta_Lsquared_lya *= kp_lya_cubed/2/_PI_/_PI_;
+  }
+
+
+  if (psp->spectra_verbose>0) {
+      if(psp->get_lyman_alpha_tilt_and_amplitude == _TRUE_){
+    printf(" -> lya scale = %e 1/Mpc \n", psp->kp_lya);
+    printf(" -> amplitude at lya scale = %e \n", psp->Delta_Lsquared_lya);
+    printf(" -> tilt at lya scale = %e \n", psp->n_L_lya);
     }
   }
 
