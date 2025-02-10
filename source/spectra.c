@@ -2996,6 +2996,10 @@ int spectra_pk(
   double pk_cb_tot=0.,ln_pk_cb_tot=0.;
   double kp_lya_cubed, tau_lya, Hubble;
   double * pvecback_lya;
+  double pk_cb;
+  double * pk_ic = NULL;
+  double * pk_cb_ic = NULL;
+
   int last_index=0;
 
   /** - check the presence of scalar modes */
@@ -3299,7 +3303,6 @@ int spectra_pk(
              psp->error_message);
 
  class_alloc(pvecback_lya,pba->bg_size*sizeof(double),psp->error_message);
-
   class_call(background_at_tau(pba,tau_lya,pba->long_info,pba->inter_normal,&last_index,pvecback_lya),
              pba->error_message,
              psp->error_message);
@@ -3310,6 +3313,7 @@ int spectra_pk(
   kp_lya_cubed=psp->kp_lya*psp->kp_lya*psp->kp_lya;
   free(pvecback_lya);
 
+
   class_call(spectra_pk_tilt_at_k_and_z(pba,
                                           ppm,
                                           psp,
@@ -3318,23 +3322,26 @@ int spectra_pk(
                                           &psp->n_L_lya),
              psp->error_message,
              psp->error_message);
+
+
 /** get amplitude at lyman alpha pivot scale */
-  class_call(spectra_pk_at_k_and_z(pba,
+
+ class_call(spectra_pk_at_k_and_z(pba,
                                      ppm,
                                      psp,
                                      psp->kp_lya,
                                      psp->zp_lya,
                                      &psp->Delta_Lsquared_lya,
-                                     NULL,
-				     NULL,
-				     NULL),
+                                     pk_ic,&pk_cb,pk_cb_ic),
              psp->error_message,
              psp->error_message);
+
   psp->Delta_Lsquared_lya *= kp_lya_cubed/2/_PI_/_PI_;
   }
 
 
   if (psp->spectra_verbose>0) {
+
       if(psp->get_lyman_alpha_tilt_and_amplitude == _TRUE_){
     printf(" -> lya scale = %e 1/Mpc \n", psp->kp_lya);
     printf(" -> amplitude at lya scale = %e \n", psp->Delta_Lsquared_lya);
